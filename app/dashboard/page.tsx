@@ -15,8 +15,10 @@ export default function Dashboard() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [totalClientes, setTotalClientes] = useState(0);
-  const [totalLeads, setTotalLeads] = useState(0); // Novo estado para as Leads
+  const [totalLeads, setTotalLeads] = useState(0);
+  
   const [clientes, setClientes] = useState<any[]>([]);
+  const [leads, setLeads] = useState<any[]>([]); // Novo estado para a lista de Leads
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -32,7 +34,7 @@ export default function Dashboard() {
     }
     setUserEmail(session.user.email ?? null);
 
-    // 1. Carrega os Clientes (Tenants)
+    // 1. Carrega os Clientes
     const { data: tenants } = await supabase
       .from('tenants')
       .select('*')
@@ -43,10 +45,15 @@ export default function Dashboard() {
       setClientes(tenants);
     }
     
-    // 2. Carrega a contagem de Leads
-    const { data: leads } = await supabase.from('leads').select('id');
-    if (leads) {
-      setTotalLeads(leads.length);
+    // 2. Carrega as Leads completas
+    const { data: leadsData } = await supabase
+      .from('leads')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (leadsData) {
+      setTotalLeads(leadsData.length);
+      setLeads(leadsData); // Guarda os dados para a tabela
     }
     
     setLoading(false);
@@ -131,12 +138,12 @@ export default function Dashboard() {
               <CardTitle className="text-sm font-medium">Leads Ativas</CardTitle>
             </CardHeader>
             <CardContent>
-              {/* O número agora é dinâmico */}
               <div className="text-2xl font-bold">{totalLeads}</div>
             </CardContent>
           </Card>
         </div>
 
+        {/* TABELA DE CLIENTES */}
         <Card>
           <CardHeader>
             <CardTitle>Empresas Registadas</CardTitle>
@@ -164,6 +171,56 @@ export default function Dashboard() {
                   <TableRow>
                     <TableCell colSpan={3} className="text-center text-gray-500 py-4">
                       Nenhum cliente encontrado.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        {/* NOVA TABELA DE LEADS */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Últimos Leads Recebidas</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Contactos</TableHead>
+                  <TableHead>Origem</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Data</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {leads.map((lead) => (
+                  <TableRow key={lead.id}>
+                    <TableCell className="font-medium">{lead.nome}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span>{lead.email}</span>
+                        <span className="text-xs text-gray-500">{lead.telefone}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>{lead.origem}</TableCell>
+                    <TableCell>
+                      {/* Badge visual para o status */}
+                      <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10 capitalize">
+                        {lead.status}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      {new Date(lead.created_at).toLocaleDateString('pt-PT')}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {leads.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-gray-500 py-4">
+                      Nenhuma lead recebida ainda.
                     </TableCell>
                   </TableRow>
                 )}
