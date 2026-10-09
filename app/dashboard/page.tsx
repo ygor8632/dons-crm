@@ -15,7 +15,8 @@ export default function Dashboard() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [totalClientes, setTotalClientes] = useState(0);
-  const [clientes, setClientes] = useState<any[]>([]); // Novo estado para guardar a lista
+  const [totalLeads, setTotalLeads] = useState(0); // Novo estado para as Leads
+  const [clientes, setClientes] = useState<any[]>([]);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -31,7 +32,7 @@ export default function Dashboard() {
     }
     setUserEmail(session.user.email ?? null);
 
-    // Agora pedimos todos os dados (*) ordenados pelos mais recentes
+    // 1. Carrega os Clientes (Tenants)
     const { data: tenants } = await supabase
       .from('tenants')
       .select('*')
@@ -39,7 +40,13 @@ export default function Dashboard() {
 
     if (tenants) {
       setTotalClientes(tenants.length);
-      setClientes(tenants); // Guardamos a lista completa para a tabela
+      setClientes(tenants);
+    }
+    
+    // 2. Carrega a contagem de Leads
+    const { data: leads } = await supabase.from('leads').select('id');
+    if (leads) {
+      setTotalLeads(leads.length);
     }
     
     setLoading(false);
@@ -70,7 +77,6 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-6xl mx-auto space-y-8">
         
-        {/* Cabeçalho */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-gray-900">Painel Superadmin</h1>
@@ -110,7 +116,6 @@ export default function Dashboard() {
           </Dialog>
         </div>
 
-        {/* Grelha de Estatísticas */}
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -126,12 +131,12 @@ export default function Dashboard() {
               <CardTitle className="text-sm font-medium">Leads Ativas</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">0</div>
+              {/* O número agora é dinâmico */}
+              <div className="text-2xl font-bold">{totalLeads}</div>
             </CardContent>
           </Card>
         </div>
 
-        {/* NOVA TABELA DE CLIENTES */}
         <Card>
           <CardHeader>
             <CardTitle>Empresas Registadas</CardTitle>

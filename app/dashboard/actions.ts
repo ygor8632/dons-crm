@@ -8,7 +8,6 @@ export async function criarCliente(formData: FormData) {
   const password = formData.get('password') as string;
 
   try {
-    // 1. Cria a Empresa (Tenant)
     const { data: tenant, error: tenantError } = await supabaseAdmin
       .from('tenants')
       .insert([{ name: nomeEmpresa, plan: 'basic' }])
@@ -17,16 +16,14 @@ export async function criarCliente(formData: FormData) {
       
     if (tenantError) throw tenantError;
 
-    // 2. Cria o Utilizador (Auth) nos bastidores
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: email,
       password: password,
-      email_confirm: true, // Já valida o e-mail automaticamente
+      email_confirm: true,
     });
 
     if (authError) throw authError;
 
-    // 3. Associa o Utilizador à Empresa com perfil de 'admin'
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
       .insert([{
