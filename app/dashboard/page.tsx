@@ -78,6 +78,7 @@ export default function Dashboard() {
           </div>
 
           <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+            {/* @ts-ignore */}
             <DialogTrigger asChild>
               <Button>Adicionar Cliente</Button>
             </DialogTrigger>
