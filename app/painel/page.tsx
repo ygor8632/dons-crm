@@ -7,7 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { LayoutDashboard, Users, Inbox, Settings, LogOut, CheckCircle2, Clock, Phone, Mail, Filter } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { LayoutDashboard, Users, Inbox, Settings, LogOut, CheckCircle2, Clock, Phone, Mail, Filter, Plus, Trash2 } from "lucide-react";
 
 export default function TenantDashboard() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -18,7 +20,17 @@ export default function TenantDashboard() {
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [leadSelecionada, setLeadSelecionada] = useState<any>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+
+  // Estados para o Modal de NOVA Lead
+  const [isNovaLeadModalOpen, setIsNovaLeadModalOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [novaLead, setNovaLead] = useState({ nome: '', email: '', telefone: '', origem: 'Adicionado Manualmente' });
   
+  // Estados para o Modal de APAGAR Lead
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [leadParaApagar, setLeadParaApagar] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const router = useRouter();
   const supabase = createClient();
 
@@ -53,27 +65,57 @@ export default function TenantDashboard() {
     router.push('/login');
   };
 
-  // Função para atualizar o status na Base de Dados com tratamento de erro e .select()
+  // --- FUNÇÃO: Criar Nova Lead ---
+  const handleCriarLead = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsCreating(true);
+
+    const { error } = await supabase
+      .from('leads')
+      .insert([
+        {
+          nome: novaLead.nome,
+          email: novaLead.email,
+          telefone: novaLead.telefone,
+          origem: novaLead.origem,
+          status: 'novo'
+        }
+      ]);
+
+    setIsCreating(false);
+
+    if (error) {
+      console.error("Erro ao criar oportunidade:", error.message);
+    } else {
+      setIsNovaLeadModalOpen(false);
+      setNovaLead({ nome: '', email: '', telefone: '', origem: 'Adicionado Manualmente' });
+      await carregarDados();
+    }
+  };
+
+  // --- FUNÇÃO: Atualizar Status ---
   const atualizarStatusLead = async (novoStatus: string) => {
     if (!leadSelecionada) return;
     
     setIsUpdating(true);
     
-    const { data, error } = await supabase
-      .from('leads')
-      .update({ status: novoStatus })
-      .eq('id', leadSelecionada.id)
-      .select();
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({ status: novoStatus })
+        .eq('id', leadSelecionada.id);
 
-    setIsUpdating(false);
-
-    if (error) {
-      console.error("Erro ao atualizar:", error);
-      alert("Erro ao atualizar a oportunidade: " + error.message);
-    } else {
-      setIsStatusModalOpen(false);
-      setLeadSelecionada(null);
-      carregarDados(); // Recarrega os dados atualizados do Supabase
+      if (error) {
+        console.error("Erro ao atualizar status:", error.message);
+      } else {
+        setIsStatusModalOpen(false);
+        setLeadSelecionada(null);
+        await carregarDados();
+      }
+    } catch (err) {
+      console.error("Erro inesperado:", err);
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -82,18 +124,44 @@ export default function TenantDashboard() {
     setIsStatusModalOpen(true);
   };
 
+  // --- FUNÇÃO: Apagar Lead ---
+  const apagarLead = async () => {
+    if (!leadParaApagar) return;
+    
+    setIsDeleting(true);
+
+    const { error } = await supabase
+      .from('leads')
+      .delete()
+      .eq('id', leadParaApagar.id);
+
+    setIsDeleting(false);
+
+    if (error) {
+      console.error("Erro ao apagar oportunidade:", error.message);
+    } else {
+      setIsDeleteModalOpen(false);
+      setLeadParaApagar(null);
+      await carregarDados();
+    }
+  };
+
+  const abrirModalApagar = (lead: any) => {
+    setLeadParaApagar(lead);
+    setIsDeleteModalOpen(true);
+  };
+
   if (loading) {
     return <div className="flex h-screen items-center justify-center bg-[#F8FFFE] text-[#112031] font-medium">A preparar o seu ambiente de trabalho...</div>;
   }
 
-  // Estatísticas baseadas nos dados atualizados
   const leadsNovas = minhasLeads.filter(l => l.status === 'novo' || l.status === 'nova').length || 0;
   const leadsEmAtendimento = minhasLeads.filter(l => l.status === 'em_atendimento').length || 0;
 
   return (
     <div className="flex h-screen bg-[#F8FFFE] overflow-hidden font-sans">
       
-      {/* SIDEBAR DO CLIENTE (Esquerda) */}
+      {/* SIDEBAR DO CLIENTE */}
       <aside className="w-64 bg-[#112031] flex flex-col rounded-r-3xl shadow-xl z-10 text-white">
         <div className="p-8 flex flex-col items-center">
           <div className="h-20 w-20 rounded-full bg-[#F8FFFE] border-2 border-[#345B63] flex items-center justify-center text-3xl font-bold text-[#112031] mb-4 shadow-inner">
@@ -135,7 +203,7 @@ export default function TenantDashboard() {
         </div>
       </aside>
 
-      {/* ÁREA PRINCIPAL DO CLIENTE (Direita) */}
+      {/* ÁREA PRINCIPAL DO CLIENTE */}
       <main className="flex-1 overflow-y-auto p-10 relative">
         <div className="max-w-6xl mx-auto space-y-8">
           
@@ -145,10 +213,19 @@ export default function TenantDashboard() {
               <h1 className="text-2xl font-bold text-[#112031]">Resumo de Vendas</h1>
               <p className="text-sm text-gray-500 mt-1">Acompanhe os seus contactos e avance nas negociações.</p>
             </div>
-            <Button className="bg-[#345B63] hover:bg-[#112031] text-white rounded-xl px-6 flex items-center gap-2">
-              <Filter size={18} />
-              Filtrar Lista
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button variant="outline" className="border-gray-200 text-gray-600 rounded-xl px-4 flex items-center gap-2">
+                <Filter size={18} />
+                Filtrar
+              </Button>
+              <Button 
+                onClick={() => setIsNovaLeadModalOpen(true)}
+                className="bg-[#345B63] hover:bg-[#112031] text-white rounded-xl px-6 flex items-center gap-2 shadow-md transition-all"
+              >
+                <Plus size={18} />
+                Nova Oportunidade
+              </Button>
+            </div>
           </div>
 
           {/* Cartões de Funil Rápido */}
@@ -196,7 +273,7 @@ export default function TenantDashboard() {
                     <TableHead className="py-4 px-6 font-semibold">Nome e Origem</TableHead>
                     <TableHead className="py-4 font-semibold">Contactar</TableHead>
                     <TableHead className="py-4 font-semibold">Fase Atual</TableHead>
-                    <TableHead className="py-4 font-semibold text-right px-6">Ação</TableHead>
+                    <TableHead className="py-4 font-semibold text-right px-6">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -225,21 +302,32 @@ export default function TenantDashboard() {
                         </span>
                       </TableCell>
                       <TableCell className="text-right px-6">
-                        <Button 
-                          onClick={() => abrirModalStatus(lead)}
-                          variant="outline" 
-                          size="sm" 
-                          className="border-[#345B63] text-[#345B63] hover:bg-[#345B63] hover:text-white"
-                        >
-                          Atualizar Fase
-                        </Button>
+                        <div className="flex items-center justify-end gap-2">
+                          <Button 
+                            onClick={() => abrirModalStatus(lead)}
+                            variant="outline" 
+                            size="sm" 
+                            className="border-[#345B63] text-[#345B63] hover:bg-[#345B63] hover:text-white"
+                          >
+                            Atualizar Fase
+                          </Button>
+                          <Button 
+                            onClick={() => abrirModalApagar(lead)}
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-red-400 hover:text-red-600 hover:bg-red-50"
+                            title="Apagar Oportunidade"
+                          >
+                            <Trash2 size={18} />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
                   {minhasLeads.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={4} className="text-center text-gray-500 py-12">
-                        Ainda não tem oportunidades na sua lista.
+                        Ainda não tem oportunidades na sua lista. Clique em "Nova Oportunidade" para começar.
                       </TableCell>
                     </TableRow>
                   )}
@@ -249,7 +337,7 @@ export default function TenantDashboard() {
           </Card>
         </div>
 
-        {/* Modal de Atualização de Status */}
+        {/* MODAL 1: Atualização de Status */}
         <Dialog open={isStatusModalOpen} onOpenChange={setIsStatusModalOpen}>
           <DialogContent className="sm:max-w-[425px] rounded-2xl">
             <DialogHeader>
@@ -259,31 +347,93 @@ export default function TenantDashboard() {
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-3 mt-4">
-              <Button 
-                onClick={() => atualizarStatusLead('novo')}
-                disabled={isUpdating}
-                className="w-full bg-yellow-100 text-yellow-800 hover:bg-yellow-200 justify-start"
-              >
+              <Button onClick={() => atualizarStatusLead('novo')} disabled={isUpdating} className="w-full bg-yellow-100 text-yellow-800 hover:bg-yellow-200 justify-start">
                 <Clock size={16} className="mr-2" /> Aguardando Contacto (Novo)
               </Button>
-              <Button 
-                onClick={() => atualizarStatusLead('em_atendimento')}
-                disabled={isUpdating}
-                className="w-full bg-blue-100 text-blue-800 hover:bg-blue-200 justify-start"
-              >
+              <Button onClick={() => atualizarStatusLead('em_atendimento')} disabled={isUpdating} className="w-full bg-blue-100 text-blue-800 hover:bg-blue-200 justify-start">
                 <Phone size={16} className="mr-2" /> Em Atendimento
               </Button>
-              <Button 
-                onClick={() => atualizarStatusLead('concluido')}
-                disabled={isUpdating}
-                className="w-full bg-[#D4ECDD] text-[#345B63] hover:bg-[#D4ECDD]/80 justify-start"
-              >
+              <Button onClick={() => atualizarStatusLead('concluido')} disabled={isUpdating} className="w-full bg-[#D4ECDD] text-[#345B63] hover:bg-[#D4ECDD]/80 justify-start">
                 <CheckCircle2 size={16} className="mr-2" /> Venda Concluída
               </Button>
             </div>
-            <DialogFooter className="pt-4 mt-4 border-t border-gray-100">
-              <Button variant="ghost" onClick={() => setIsStatusModalOpen(false)} disabled={isUpdating}>
+          </DialogContent>
+        </Dialog>
+
+        {/* MODAL 2: Criar Nova Lead */}
+        <Dialog open={isNovaLeadModalOpen} onOpenChange={setIsNovaLeadModalOpen}>
+          <DialogContent className="sm:max-w-[425px] rounded-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-[#112031] text-xl">Nova Oportunidade</DialogTitle>
+              <DialogDescription>
+                Adicione um novo contacto manualmente ao seu funil de vendas.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleCriarLead} className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label htmlFor="nome">Nome do Cliente *</Label>
+                <Input 
+                  id="nome" 
+                  required 
+                  value={novaLead.nome}
+                  onChange={(e) => setNovaLead({...novaLead, nome: e.target.value})}
+                  placeholder="Ex: Maria Silva" 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="telefone">WhatsApp / Telefone</Label>
+                <Input 
+                  id="telefone" 
+                  value={novaLead.telefone}
+                  onChange={(e) => setNovaLead({...novaLead, telefone: e.target.value})}
+                  placeholder="Ex: 912345678" 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">E-mail</Label>
+                <Input 
+                  id="email" 
+                  type="email"
+                  value={novaLead.email}
+                  onChange={(e) => setNovaLead({...novaLead, email: e.target.value})}
+                  placeholder="Ex: maria@email.com" 
+                />
+              </div>
+              <DialogFooter className="pt-4">
+                <Button type="button" variant="ghost" onClick={() => setIsNovaLeadModalOpen(false)} disabled={isCreating}>
+                  Cancelar
+                </Button>
+                <Button type="submit" className="bg-[#112031] text-white hover:bg-[#152D35]" disabled={isCreating}>
+                  {isCreating ? 'A guardar...' : 'Guardar Oportunidade'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* MODAL 3: Confirmação para Apagar Lead */}
+        <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+          <DialogContent className="sm:max-w-[425px] rounded-2xl border-red-100">
+            <DialogHeader>
+              <DialogTitle className="text-red-600 text-xl flex items-center gap-2">
+                <Trash2 size={24} />
+                Apagar Oportunidade
+              </DialogTitle>
+              <DialogDescription className="pt-3 text-base text-gray-600">
+                Tem a certeza que deseja apagar permanentemente o contacto <strong>{leadParaApagar?.nome}</strong>?
+                Esta ação não pode ser desfeita e removerá a oportunidade do seu funil.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="pt-4 mt-4 border-t border-gray-100 flex gap-2 sm:gap-0">
+              <Button type="button" variant="ghost" onClick={() => setIsDeleteModalOpen(false)} disabled={isDeleting}>
                 Cancelar
+              </Button>
+              <Button 
+                onClick={apagarLead} 
+                className="bg-red-500 text-white hover:bg-red-600 shadow-sm" 
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'A apagar...' : 'Sim, Apagar Contacto'}
               </Button>
             </DialogFooter>
           </DialogContent>
