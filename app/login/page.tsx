@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { ArrowRight, ShieldCheck, Zap, BarChart3 } from 'lucide-react';
+import Link from "next/link";
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -136,10 +137,12 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <Label htmlFor="password" className="text-xs font-bold text-gray-600 uppercase">Senha</Label>
-                <a href="#" className="text-xs font-bold text-[#4361EE] hover:underline">Esqueceu a senha?</a>
-              </div>
+              <div className="flex justify-between items-center mb-1">
+  <Label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Senha</Label>
+  <Link href="/esqueci-senha" className="text-xs font-bold text-[#4361EE] hover:underline">
+    Esqueci minha senha
+  </Link>
+</div>
               <Input 
                 id="password" 
                 type="password" 
