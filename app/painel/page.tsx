@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LayoutDashboard, Users, Inbox, Settings, LogOut, CheckCircle2, Clock, Phone, AlertCircle, Plus, Trash2, ArrowUpRight, Search, List, Columns, ShieldCheck, TrendingUp, MessageSquare, Edit2, UserPlus, UserCircle2, Plug } from "lucide-react";
+import { LayoutDashboard, Users, Inbox, Settings, LogOut, CheckCircle2, Clock, Phone, AlertCircle, Plus, Trash2, ArrowUpRight, Search, List, Columns, ShieldCheck, TrendingUp, MessageSquare, Edit2, UserPlus, UserCircle2, Plug, Copy, Check } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 export default function TenantDashboard() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -55,7 +56,7 @@ export default function TenantDashboard() {
   const [textoAnotacaoEditada, setTextoAnotacaoEditada] = useState('');
 
   const [isConvidarModalOpen, setIsConvidarModalOpen] = useState(false);
-  const [novoMembro, setNovoMembro] = useState({ nome: '', email: '', role: 'vendedor' });
+  const [webhookCopiado, setWebhookCopiado] = useState(false);
 
   const router = useRouter();
   const supabase = createClient();
@@ -114,7 +115,7 @@ export default function TenantDashboard() {
       status: 'novo', empresa_id: empresaId, vendedor_id: responsavelId 
     }]);
     
-    await registrarLog('CRIAR_LEAD', 'LEAD', `Criou o contacto: ${novaLead.nome}`);
+    await registrarLog('CRIAR_LEAD', 'LEAD', `Criou o contato: ${novaLead.nome}`);
     setIsCreating(false);
     setIsNovaLeadModalOpen(false);
     setNovaLead({ nome: '', email: '', telefone: '', origem: 'Adicionado Manualmente', vendedor_id: '' });
@@ -164,7 +165,7 @@ export default function TenantDashboard() {
     if (!leadParaApagar) return;
     setIsDeleting(true);
     await supabase.from('leads').delete().eq('id', leadParaApagar.id);
-    await registrarLog('EXCLUIR_LEAD', 'LEAD', `Excluiu o contacto: ${leadParaApagar.nome}`);
+    await registrarLog('EXCLUIR_LEAD', 'LEAD', `Excluiu o contato: ${leadParaApagar.nome}`);
     setIsDeleting(false);
     setIsDeleteModalOpen(false);
     carregarDados();
@@ -209,7 +210,7 @@ export default function TenantDashboard() {
 
     const novaNota = { lead_id: leadSelecionada.id, empresa_id: empresaId, usuario_id: userId, texto: novaAnotacaoTexto };
     await supabase.from('lead_anotacoes').insert([novaNota]);
-    await registrarLog('ADICIONAR_ANOTACAO', 'LEAD', `Anotou no contacto ${leadSelecionada.nome}`);
+    await registrarLog('ADICIONAR_ANOTACAO', 'LEAD', `Anotou no contato ${leadSelecionada.nome}`);
     
     setNovaAnotacaoTexto('');
     abrirModalDetalhes(leadSelecionada);
@@ -228,6 +229,14 @@ export default function TenantDashboard() {
     abrirModalDetalhes(leadSelecionada);
   };
 
+  const copiarUrlWebhook = () => {
+    if (!empresaId) return;
+    const url = `${window.location.origin}/api/webhooks/leads?token=${empresaId}`;
+    navigator.clipboard.writeText(url);
+    setWebhookCopiado(true);
+    setTimeout(() => setWebhookCopiado(false), 2000);
+  };
+
   const leadsFiltradas = minhasLeads.filter(lead => {
     const matchBusca = lead.nome.toLowerCase().includes(termoBusca.toLowerCase()) || (lead.email && lead.email.toLowerCase().includes(termoBusca.toLowerCase()));
     const matchStatus = filtroStatus === 'todos' || lead.status === filtroStatus;
@@ -237,6 +246,31 @@ export default function TenantDashboard() {
   const logsFiltrados = logsAuditoria.filter(log =>
     log.acao?.toLowerCase().includes(termoBuscaLogs.toLowerCase()) || log.detalhes?.toLowerCase().includes(termoBuscaLogs.toLowerCase())
   );
+
+  // ================= DADOS PARA OS GRÁFICOS =================
+  const contagemStatus = {
+    novo: minhasLeads.filter(l => l.status === 'novo').length,
+    em_atendimento: minhasLeads.filter(l => l.status === 'em_atendimento').length,
+    concluido: minhasLeads.filter(l => l.status === 'concluido').length,
+  };
+
+  const dadosFunil = [
+    { name: 'Aguardando', quantidade: contagemStatus.novo, cor: '#EAB308' }, // Amarelo
+    { name: 'Em Atend.', quantidade: contagemStatus.em_atendimento, cor: '#3B82F6' }, // Azul
+    { name: 'Concluído', quantidade: contagemStatus.concluido, cor: '#22C55E' }, // Verde
+  ];
+
+  // Agrupar leads por origem
+  const origensMap = minhasLeads.reduce((acc: any, lead) => {
+    const orig = lead.origem || 'Desconhecida';
+    acc[orig] = (acc[orig] || 0) + 1;
+    return acc;
+  }, {});
+  
+  const dadosOrigem = Object.keys(origensMap).map(key => ({
+    origem: key,
+    quantidade: origensMap[key]
+  })).sort((a, b) => b.quantidade - a.quantidade); // Ordenar do maior para o menor
 
   if (loading) return <div className="flex h-screen items-center justify-center bg-[#F8FFFE] text-[#112031]">Carregando ambiente...</div>;
 
@@ -280,16 +314,17 @@ export default function TenantDashboard() {
       <main className="flex-1 overflow-y-auto p-10 relative">
         <div className="max-w-6xl mx-auto space-y-8">
           
-          {/* TELA 1: VISÃO GERAL */}
+          {/* TELA 1: VISÃO GERAL COM GRÁFICOS */}
           {activeTab === 'visao_geral' && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
               <div className="flex items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                 <div>
                   <h1 className="text-xl font-bold text-[#112031]">Painel de Operações {userRole === 'admin' && "(Visão Global)"}</h1>
-                  <p className="text-sm text-gray-500 mt-1">Acompanhe as suas métricas rapidamente.</p>
+                  <p className="text-sm text-gray-500 mt-1">Acompanhe as suas métricas e o desempenho do funil de vendas.</p>
                 </div>
               </div>
 
+              {/* Cards de Resumo */}
               <div className="grid gap-6 md:grid-cols-4">
                 <Card className="border-none shadow-sm rounded-2xl bg-white">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -303,21 +338,83 @@ export default function TenantDashboard() {
                     <CardTitle className="text-xs font-bold text-gray-500 uppercase">Aguardando Contato</CardTitle>
                     <div className="bg-yellow-100 text-yellow-700 p-1.5 rounded-lg"><Clock size={16} /></div>
                   </CardHeader>
-                  <CardContent><div className="text-2xl font-bold text-[#112031]">{minhasLeads.filter(l => l.status === 'novo').length}</div></CardContent>
+                  <CardContent><div className="text-2xl font-bold text-[#112031]">{contagemStatus.novo}</div></CardContent>
                 </Card>
                 <Card className="border-none shadow-sm rounded-2xl bg-white">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-xs font-bold text-gray-500 uppercase">Em Atendimento</CardTitle>
                     <div className="bg-purple-100 text-purple-700 p-1.5 rounded-lg"><Users size={16} /></div>
                   </CardHeader>
-                  <CardContent><div className="text-2xl font-bold text-[#112031]">{minhasLeads.filter(l => l.status === 'em_atendimento').length}</div></CardContent>
+                  <CardContent><div className="text-2xl font-bold text-[#112031]">{contagemStatus.em_atendimento}</div></CardContent>
                 </Card>
                 <Card className="border-none shadow-sm rounded-2xl bg-white">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-xs font-bold text-gray-500 uppercase">Vendas Concluídas</CardTitle>
                     <div className="bg-green-100 text-green-700 p-1.5 rounded-lg"><CheckCircle2 size={16} /></div>
                   </CardHeader>
-                  <CardContent><div className="text-2xl font-bold text-[#112031]">{minhasLeads.filter(l => l.status === 'concluido').length}</div></CardContent>
+                  <CardContent><div className="text-2xl font-bold text-[#112031]">{contagemStatus.concluido}</div></CardContent>
+                </Card>
+              </div>
+
+              {/* Secção de Gráficos */}
+              <div className="grid md:grid-cols-2 gap-6">
+                
+                {/* Gráfico 1: Funil de Vendas (Pizza) */}
+                <Card className="border-none shadow-sm rounded-2xl bg-white">
+                  <CardHeader className="border-b border-gray-50 pb-4">
+                    <CardTitle className="text-base text-[#112031]">Distribuição do Funil</CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-6 flex justify-center items-center h-72">
+                    {minhasLeads.length === 0 ? (
+                      <p className="text-sm text-gray-400">Sem dados para exibir.</p>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={dadosFunil}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={80}
+                            paddingAngle={5}
+                            dataKey="quantidade"
+                          >
+                            {dadosFunil.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.cor} />
+                            ))}
+                          </Pie>
+                          <RechartsTooltip formatter={(value) => [`${value} Leads`, 'Quantidade']} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    )}
+                  </CardContent>
+                  <div className="flex justify-center gap-4 pb-6 px-6">
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium"><div className="w-3 h-3 rounded-full bg-[#EAB308]"></div> Aguardando</div>
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium"><div className="w-3 h-3 rounded-full bg-[#3B82F6]"></div> Em Atendimento</div>
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium"><div className="w-3 h-3 rounded-full bg-[#22C55E]"></div> Concluído</div>
+                  </div>
+                </Card>
+
+                {/* Gráfico 2: Origem das Leads (Barras) */}
+                <Card className="border-none shadow-sm rounded-2xl bg-white">
+                  <CardHeader className="border-b border-gray-50 pb-4">
+                    <CardTitle className="text-base text-[#112031]">Leads por Origem</CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-6 h-72">
+                    {dadosOrigem.length === 0 ? (
+                      <div className="flex h-full items-center justify-center"><p className="text-sm text-gray-400">Sem dados para exibir.</p></div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={dadosOrigem} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                          <XAxis dataKey="origem" tick={{fontSize: 12, fill: '#64748b'}} axisLine={false} tickLine={false} />
+                          <YAxis tick={{fontSize: 12, fill: '#64748b'}} axisLine={false} tickLine={false} />
+                          <RechartsTooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
+                          <Bar dataKey="quantidade" fill="#4361EE" radius={[4, 4, 0, 0]} maxBarSize={50} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </CardContent>
                 </Card>
               </div>
             </div>
@@ -530,33 +627,65 @@ export default function TenantDashboard() {
             </div>
           )}
 
-          {/* TELA 4: INTEGRAÇÕES */}
+          {/* TELA 4: INTEGRAÇÕES E WEBHOOKS */}
           {activeTab === 'integracoes' && userRole === 'admin' && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
               <div className="flex items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                 <div>
                   <h1 className="text-xl font-bold text-[#112031]">Integrações e Webhooks</h1>
-                  <p className="text-sm text-gray-500 mt-1">Conecte o seu CRM a ferramentas externas via API.</p>
+                  <p className="text-sm text-gray-500 mt-1">Conecte formulários e sistemas externos para criar leads automaticamente.</p>
                 </div>
-                <span className="bg-purple-100 text-purple-700 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">Em Breve</span>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-6">
-                <Card className="border border-dashed border-gray-300 shadow-none rounded-2xl bg-gray-50/50 opacity-80">
-                  <CardContent className="p-8 flex flex-col items-center justify-center text-center space-y-4">
-                    <div className="h-12 w-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center"><Plug size={24}/></div>
-                    <h3 className="font-bold text-[#112031]">Webhooks Personalizados</h3>
-                    <p className="text-xs text-gray-500 max-w-xs">Crie URLs de recebimento para criar Leads automaticamente a partir do Facebook Ads, Typeform ou do seu site.</p>
-                    <Button disabled variant="outline" className="text-xs bg-white border-gray-200 mt-2">Configurar Webhook</Button>
+              <div className="grid lg:grid-cols-2 gap-6">
+                <Card className="border-none shadow-sm rounded-2xl bg-white">
+                  <CardHeader className="border-b border-gray-50 pb-4 flex flex-row items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center"><Plug size={20}/></div>
+                    <div>
+                      <CardTitle className="text-base text-[#112031]">Endpoint de Recebimento</CardTitle>
+                      <p className="text-xs text-gray-500 mt-1">Sua URL exclusiva para envio de requisições POST.</p>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-6 space-y-4">
+                    <div className="flex gap-2">
+                      <Input 
+                        readOnly 
+                        value={`${typeof window !== 'undefined' ? window.location.origin : ''}/api/webhooks/leads?token=${empresaId}`} 
+                        className="bg-gray-50 border-gray-200 text-xs text-gray-600 focus-visible:ring-0" 
+                      />
+                      <Button onClick={copiarUrlWebhook} className="bg-[#112031] text-white hover:bg-[#152D35] px-4 w-32 transition-all">
+                        {webhookCopiado ? <><Check size={16} className="mr-2 text-green-400"/> Copiado</> : <><Copy size={16} className="mr-2"/> Copiar URL</>}
+                      </Button>
+                    </div>
+                    <div className="bg-yellow-50 border border-yellow-100 rounded-xl p-4 flex gap-3 text-sm text-yellow-800">
+                      <AlertCircle size={20} className="shrink-0 text-yellow-600"/>
+                      <p>Mantenha este link seguro. Qualquer sistema que enviar dados para esta URL criará leads automaticamente no seu funil de <b>Aguardando Contato</b>.</p>
+                    </div>
                   </CardContent>
                 </Card>
 
-                <Card className="border border-dashed border-gray-300 shadow-none rounded-2xl bg-gray-50/50 opacity-80">
-                  <CardContent className="p-8 flex flex-col items-center justify-center text-center space-y-4">
-                    <div className="h-12 w-12 rounded-xl bg-green-100 text-green-600 flex items-center justify-center"><ShieldCheck size={24}/></div>
-                    <h3 className="font-bold text-[#112031]">Chaves de API (API Keys)</h3>
-                    <p className="text-xs text-gray-500 max-w-xs">Gere tokens seguros para realizar operações automatizadas de leitura e escrita diretamente no banco de dados do seu CRM.</p>
-                    <Button disabled variant="outline" className="text-xs bg-white border-gray-200 mt-2">Gerar Chave de API</Button>
+                <Card className="border-none shadow-sm rounded-2xl bg-white">
+                  <CardHeader className="border-b border-gray-50 pb-4 flex flex-row items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-gray-100 text-gray-600 flex items-center justify-center"><LayoutDashboard size={20}/></div>
+                    <div>
+                      <CardTitle className="text-base text-[#112031]">Formato de Envio (JSON)</CardTitle>
+                      <p className="text-xs text-gray-500 mt-1">Mapeamento dos campos suportados na requisição.</p>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                    <div className="bg-[#112031] rounded-xl p-4 overflow-x-auto">
+                      <pre className="text-xs text-green-400 font-mono leading-relaxed">
+{`{
+  "nome": "João Silva",      // Obrigatório (ou "name")
+  "email": "joao@email.com", // Opcional
+  "telefone": "11999999999", // Opcional (ou "phone")
+  "origem": "Facebook Ads"   // Opcional (ou "source")
+}`}
+                      </pre>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-4 leading-relaxed">
+                      Compatível com Make, Zapier, Elementor Forms e Typeform. O sistema mapeia os nomes de campo automaticamente caso sejam enviados em inglês.
+                    </p>
                   </CardContent>
                 </Card>
               </div>
