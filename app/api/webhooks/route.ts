@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Usamos a chave Service Role para contornar o RLS do Supabase,
-// pois o webhook é um pedido externo sem sessão de utilizador.
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
@@ -10,21 +8,20 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 export async function POST(request: Request) {
   try {
-    // Lê os dados enviados pela plataforma externa (Zapier, Facebook, etc.)
     const body = await request.json();
 
-    // Extraímos as informações principais
-    const { nome, email, telefone, origem } = body;
+    // Agora exigimos o empresa_id no payload do webhook!
+    const { nome, email, telefone, origem, empresa_id } = body;
 
-    // O nome é o único campo estritamente obrigatório para criarmos uma oportunidade
-    if (!nome) {
+    // Validação de segurança
+    if (!nome || !empresa_id) {
       return NextResponse.json(
-        { erro: 'O campo "nome" é obrigatório.' }, 
+        { erro: 'Os campos "nome" e "empresa_id" são obrigatórios.' }, 
         { status: 400 }
       );
     }
 
-    // Inserimos a lead no Supabase usando o cliente de Admin
+    // Inserimos a lead já associada à empresa correta
     const { data, error } = await supabaseAdmin
       .from('leads')
       .insert([
@@ -33,7 +30,8 @@ export async function POST(request: Request) {
           email: email || '',
           telefone: telefone || '',
           origem: origem || 'Webhook (Sistema Externo)',
-          status: 'novo' // Cai sempre no topo do funil como "Aguardando Contacto"
+          status: 'novo',
+          empresa_id: empresa_id
         }
       ])
       .select();
@@ -43,10 +41,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ erro: error.message }, { status: 500 });
     }
 
-    // Resposta de sucesso para a plataforma que enviou o webhook
     return NextResponse.json({ 
       sucesso: true, 
-      mensagem: 'Oportunidade criada com sucesso!',
+      mensagem: 'Oportunidade criada e atribuída ao cliente com sucesso!',
       lead: data[0] 
     }, { status: 201 });
 
