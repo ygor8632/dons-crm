@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LayoutDashboard, Users, Inbox, Settings, LogOut, CheckCircle2, Clock, Phone, Mail, Filter, Plus, Trash2, Edit2, AlertCircle, Calendar, ArrowUpRight, CheckCircle, TrendingUp } from "lucide-react";
+import { LayoutDashboard, Users, Inbox, Settings, LogOut, CheckCircle2, Clock, Phone, AlertCircle, Plus, Trash2, ArrowUpRight, CheckCircle, TrendingUp, ShieldCheck } from "lucide-react";
 
 export default function TenantDashboard() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -17,9 +17,14 @@ export default function TenantDashboard() {
   const [loading, setLoading] = useState(true);
   const [minhasLeads, setMinhasLeads] = useState<any[]>([]);
   
-  // NOVO: Sistema de navegação SPA (Single Page Application)
+  // Navegação SPA
   const [activeTab, setActiveTab] = useState<'visao_geral' | 'oportunidades' | 'configuracoes'>('visao_geral');
   
+  // Estados para a tela de Configurações
+  const [nomeEmpresa, setNomeEmpresa] = useState('');
+  const [planoEmpresa, setPlanoEmpresa] = useState('');
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
+
   // Modais de Criação, Status, Apagar e Editar
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [leadSelecionada, setLeadSelecionada] = useState<any>(null);
@@ -62,6 +67,19 @@ export default function TenantDashboard() {
     const currentEmpresaId = perfilData.empresa_id;
     setEmpresaId(currentEmpresaId);
 
+    // Carregar dados da Empresa para a aba Configurações
+    const { data: empresaData } = await supabase
+      .from('empresas')
+      .select('nome, plano')
+      .eq('id', currentEmpresaId)
+      .single();
+      
+    if (empresaData) {
+      setNomeEmpresa(empresaData.nome);
+      setPlanoEmpresa(empresaData.plano);
+    }
+
+    // Carregar Leads
     const { data: leadsData } = await supabase
       .from('leads')
       .select('*')
@@ -81,7 +99,7 @@ export default function TenantDashboard() {
     router.push('/login');
   };
 
-  // Funções CRUD
+  // Funções CRUD de Leads
   const handleCriarLead = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!empresaId) return;
@@ -111,6 +129,16 @@ export default function TenantDashboard() {
     carregarDados();
   };
 
+  const abrirModalStatus = (lead: any) => {
+    setLeadSelecionada(lead);
+    setIsStatusModalOpen(true);
+  };
+
+  const abrirModalApagar = (lead: any) => {
+    setLeadParaApagar(lead);
+    setIsDeleteModalOpen(true);
+  };
+
   const abrirModalEditar = (lead: any) => {
     setLeadEmEdicao({ id: lead.id, nome: lead.nome, email: lead.email, telefone: lead.telefone });
     setIsEditModalOpen(true);
@@ -129,7 +157,27 @@ export default function TenantDashboard() {
     carregarDados();
   };
 
-  if (loading) return <div className="flex h-screen items-center justify-center bg-[#F8FFFE] text-[#112031]">A carregar ambiente...</div>;
+  // FUNÇÃO: Salvar Configurações da Empresa
+  const salvarConfiguracoes = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!empresaId) return;
+    
+    setIsSavingConfig(true);
+    const { error } = await supabase
+      .from('empresas')
+      .update({ nome: nomeEmpresa })
+      .eq('id', empresaId);
+      
+    setIsSavingConfig(false);
+    
+    if (error) {
+      alert("Erro ao salvar as configurações.");
+    } else {
+      alert("Configurações salvas com sucesso!");
+    }
+  };
+
+  if (loading) return <div className="flex h-screen items-center justify-center bg-[#F8FFFE] text-[#112031]">Carregando ambiente...</div>;
 
   const leadsNovas = minhasLeads.filter(l => l.status === 'novo').length || 0;
   const leadsEmAtendimento = minhasLeads.filter(l => l.status === 'em_atendimento').length || 0;
@@ -144,7 +192,7 @@ export default function TenantDashboard() {
             {userEmail ? userEmail.charAt(0).toUpperCase() : 'V'}
           </div>
           <p className="text-white font-medium text-sm truncate w-full text-center">{userEmail}</p>
-          <span className="text-[#D4ECDD] text-xs mt-1 uppercase tracking-wider font-semibold">Equipa de Vendas</span>
+          <span className="text-[#D4ECDD] text-xs mt-1 uppercase tracking-wider font-semibold">Equipe de Vendas</span>
         </div>
         <nav className="flex-1 px-4 space-y-2 mt-4">
           <button 
@@ -177,7 +225,7 @@ export default function TenantDashboard() {
       <main className="flex-1 overflow-y-auto p-10 relative">
         <div className="max-w-6xl mx-auto space-y-8">
           
-          {/* ECRÃ 1: VISÃO GERAL */}
+          {/* TELA 1: VISÃO GERAL */}
           {activeTab === 'visao_geral' && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
               <div className="flex items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
@@ -205,12 +253,12 @@ export default function TenantDashboard() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-[#112031]">{minhasLeads.length}</div>
-                    <p className="text-xs text-gray-400 mt-1 font-medium">Na base de dados</p>
+                    <p className="text-xs text-gray-400 mt-1 font-medium">No banco de dados</p>
                   </CardContent>
                 </Card>
                 <Card className="border-none shadow-sm rounded-2xl bg-white">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-xs font-bold text-gray-500 uppercase">Aguardando Contacto</CardTitle>
+                    <CardTitle className="text-xs font-bold text-gray-500 uppercase">Aguardando Contato</CardTitle>
                     <div className="bg-yellow-100 text-yellow-700 p-1.5 rounded-lg"><Clock size={16} /></div>
                   </CardHeader>
                   <CardContent>
@@ -255,7 +303,7 @@ export default function TenantDashboard() {
                       <div className="bg-red-100 p-2 rounded-full text-red-600"><AlertCircle size={18} /></div>
                       <div className="flex-1">
                         <p className="text-sm font-bold text-red-900">Oportunidades estagnadas</p>
-                        <p className="text-xs text-red-700">Funcionalidade em desenvolvimento</p>
+                        <p className="text-xs text-red-700">Leads aguardam contato há muito tempo</p>
                       </div>
                     </div>
                   </CardContent>
@@ -264,22 +312,22 @@ export default function TenantDashboard() {
             </div>
           )}
 
-          {/* ECRÃ 2: OPORTUNIDADES (Tabela) */}
+          {/* TELA 2: OPORTUNIDADES (Tabela) */}
           {activeTab === 'oportunidades' && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
               <div className="flex items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                 <div>
-                  <h1 className="text-2xl font-bold text-[#112031]">Gestão de Oportunidades</h1>
-                  <p className="text-sm text-gray-500 mt-1">Gira o seu funil de vendas e contactos.</p>
+                  <h1 className="text-2xl font-bold text-[#112031]">Gerenciamento de Oportunidades</h1>
+                  <p className="text-sm text-gray-500 mt-1">Gerencie o seu funil de vendas e contatos.</p>
                 </div>
                 <Button onClick={() => setIsNovaLeadModalOpen(true)} className="bg-[#4361EE] hover:bg-[#3A56D4] text-white rounded-xl px-6 flex items-center gap-2 shadow-md">
-                  <Plus size={18} /> Novo cliente
+                  <Plus size={18} /> Novo contato
                 </Button>
               </div>
 
               <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-white">
                 <CardHeader className="border-b border-gray-50 pb-4">
-                  <CardTitle className="text-lg text-[#112031]">Todos os Contactos</CardTitle>
+                  <CardTitle className="text-lg text-[#112031]">Todos os Contatos</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                   <Table>
@@ -337,37 +385,82 @@ export default function TenantDashboard() {
             </div>
           )}
 
-          {/* ECRÃ 3: CONFIGURAÇÕES */}
+          {/* TELA 3: CONFIGURAÇÕES FUNCIONAL */}
           {activeTab === 'configuracoes' && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
               <div className="flex items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                 <div>
                   <h1 className="text-2xl font-bold text-[#112031]">Configurações da Conta</h1>
-                  <p className="text-sm text-gray-500 mt-1">Gira o seu perfil e as preferências do sistema.</p>
+                  <p className="text-sm text-gray-500 mt-1">Gerencie os dados da sua empresa e preferências de acesso.</p>
                 </div>
               </div>
-              <Card className="border-none shadow-sm rounded-2xl bg-white max-w-2xl">
-                <CardHeader>
-                  <CardTitle className="text-lg text-[#112031]">O seu Perfil</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold text-gray-500 uppercase">E-mail de Acesso</Label>
-                    <Input disabled value={userEmail || ''} className="bg-gray-50 text-gray-500" />
-                    <p className="text-xs text-gray-400">O e-mail não pode ser alterado por aqui. Contacte o suporte.</p>
-                  </div>
-                  <Button className="bg-[#112031] text-white">Guardar Alterações</Button>
-                </CardContent>
-              </Card>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                <Card className="border-none shadow-sm rounded-2xl bg-white">
+                  <CardHeader className="border-b border-gray-50 pb-4">
+                    <CardTitle className="text-lg text-[#112031]">Dados da Empresa</CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                    <form onSubmit={salvarConfiguracoes} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs font-bold text-gray-500 uppercase">Nome da Empresa</Label>
+                        <Input 
+                          value={nomeEmpresa} 
+                          onChange={(e) => setNomeEmpresa(e.target.value)} 
+                          className="border-gray-200 focus-visible:ring-[#4361EE]"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs font-bold text-gray-500 uppercase">E-mail de Acesso</Label>
+                        <Input disabled value={userEmail || ''} className="bg-gray-50 text-gray-400 border-gray-100" />
+                        <p className="text-xs text-gray-400">O e-mail de acesso não pode ser alterado diretamente. Entre em contato com o suporte.</p>
+                      </div>
+                      <Button 
+                        type="submit" 
+                        disabled={isSavingConfig}
+                        className="bg-[#4361EE] hover:bg-[#3A56D4] text-white w-full mt-4"
+                      >
+                        {isSavingConfig ? 'Salvando...' : 'Salvar Alterações'}
+                      </Button>
+                    </form>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-none shadow-sm rounded-2xl bg-[#0A1118] text-white">
+                  <CardHeader className="border-b border-white/10 pb-4">
+                    <CardTitle className="text-lg font-bold flex items-center gap-2">
+                      <ShieldCheck size={20} className="text-[#4361EE]" />
+                      Detalhes do Plano
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-6 space-y-6">
+                    <div>
+                      <p className="text-xs text-gray-400 font-bold uppercase mb-1">Plano Atual</p>
+                      <div className="text-2xl font-bold text-white">{planoEmpresa || 'Carregando...'}</div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-400 font-bold uppercase mb-1">Status do Sistema</p>
+                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-500/10 text-green-400 text-sm font-bold border border-green-500/20">
+                        <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+                        Conta Ativa e Operacional
+                      </div>
+                    </div>
+                    <Button variant="outline" className="w-full bg-transparent border-white/20 text-white hover:bg-white/10 hover:text-white mt-4">
+                      Fazer Upgrade de Plano
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           )}
         </div>
 
-        {/* --- MODAIS MANTIDOS INTACTOS AQUI NO FINAL --- */}
+        {/* MODAIS */}
         <Dialog open={isNovaLeadModalOpen} onOpenChange={setIsNovaLeadModalOpen}>
           <DialogContent className="sm:max-w-[500px] rounded-2xl p-6">
             <DialogHeader>
-              <DialogTitle className="text-[#112031] text-xl font-bold">Novo cliente</DialogTitle>
+              <DialogTitle className="text-[#112031] text-xl font-bold">Novo contato</DialogTitle>
               <DialogDescription className="text-sm">Centralize as informações deste cliente.</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleCriarLead} className="space-y-4 mt-4">
@@ -387,7 +480,7 @@ export default function TenantDashboard() {
               </div>
               <DialogFooter className="pt-4">
                 <Button type="button" variant="ghost" onClick={() => setIsNovaLeadModalOpen(false)}>Cancelar</Button>
-                <Button type="submit" className="bg-[#4361EE] text-white hover:bg-[#3A56D4]" disabled={isCreating}>Salvar cliente</Button>
+                <Button type="submit" className="bg-[#4361EE] text-white hover:bg-[#3A56D4]" disabled={isCreating}>Salvar contato</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -396,7 +489,7 @@ export default function TenantDashboard() {
         <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
           <DialogContent className="sm:max-w-[500px] rounded-2xl p-6">
             <DialogHeader>
-              <DialogTitle className="text-[#112031] text-xl font-bold">Editar cliente</DialogTitle>
+              <DialogTitle className="text-[#112031] text-xl font-bold">Editar contato</DialogTitle>
               <DialogDescription className="text-sm">Atualize as informações deste cliente.</DialogDescription>
             </DialogHeader>
             <form onSubmit={salvarEdicaoLead} className="space-y-4 mt-4">
@@ -416,7 +509,7 @@ export default function TenantDashboard() {
               </div>
               <DialogFooter className="pt-4">
                 <Button type="button" variant="ghost" onClick={() => setIsEditModalOpen(false)}>Cancelar</Button>
-                <Button type="submit" className="bg-[#4361EE] text-white hover:bg-[#3A56D4]" disabled={isEditing}>{isEditing ? 'A atualizar...' : 'Salvar cliente'}</Button>
+                <Button type="submit" className="bg-[#4361EE] text-white hover:bg-[#3A56D4]" disabled={isEditing}>{isEditing ? 'Atualizando...' : 'Salvar contato'}</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -429,7 +522,7 @@ export default function TenantDashboard() {
               <DialogDescription>Mova <strong>{leadSelecionada?.nome}</strong> pelo seu funil de vendas.</DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-3 mt-4">
-              <Button onClick={() => atualizarStatusLead('novo')} className="w-full bg-yellow-100 text-yellow-800 hover:bg-yellow-200 justify-start"><Clock size={16} className="mr-2" /> Aguardando Contacto (Novo)</Button>
+              <Button onClick={() => atualizarStatusLead('novo')} className="w-full bg-yellow-100 text-yellow-800 hover:bg-yellow-200 justify-start"><Clock size={16} className="mr-2" /> Aguardando Contato (Novo)</Button>
               <Button onClick={() => atualizarStatusLead('em_atendimento')} className="w-full bg-blue-100 text-blue-800 hover:bg-blue-200 justify-start"><Phone size={16} className="mr-2" /> Em Atendimento</Button>
               <Button onClick={() => atualizarStatusLead('concluido')} className="w-full bg-green-100 text-green-800 hover:bg-green-200 justify-start"><CheckCircle2 size={16} className="mr-2" /> Venda Concluída</Button>
             </div>
@@ -440,7 +533,7 @@ export default function TenantDashboard() {
           <DialogContent className="sm:max-w-[425px] rounded-2xl border-red-100">
             <DialogHeader>
               <DialogTitle className="text-red-600 text-xl font-bold flex items-center gap-2"><Trash2 size={24} /> Excluir Cliente</DialogTitle>
-              <DialogDescription className="pt-3">Tem a certeza que deseja excluir <strong>{leadParaApagar?.nome}</strong>? Esta ação é irreversível.</DialogDescription>
+              <DialogDescription className="pt-3">Tem certeza que deseja excluir <strong>{leadParaApagar?.nome}</strong>? Esta ação é irreversível.</DialogDescription>
             </DialogHeader>
             <DialogFooter className="pt-4 mt-4 border-t border-gray-100">
               <Button type="button" variant="ghost" onClick={() => setIsDeleteModalOpen(false)}>Cancelar</Button>

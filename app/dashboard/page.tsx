@@ -6,6 +6,9 @@ import { createClient } from "@/utils/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Building2, LayoutDashboard, Settings, LogOut, Plus, Activity, CreditCard, ShieldAlert } from "lucide-react";
 
 export default function SuperadminDashboard() {
@@ -15,6 +18,16 @@ export default function SuperadminDashboard() {
   
   // Navegação SPA do Superadmin
   const [activeTab, setActiveTab] = useState<'visao_global' | 'gestao_clientes' | 'configuracoes'>('visao_global');
+
+  // Estados do Modal de Novo Cliente
+  const [isNovoClienteModalOpen, setIsNovoClienteModalOpen] = useState(false);
+  const [isCreatingCliente, setIsCreatingCliente] = useState(false);
+  const [novoCliente, setNovoCliente] = useState({ 
+    nome: '', 
+    email: '', 
+    plano: 'Starter', 
+    status: 'Ativo' 
+  });
 
   const router = useRouter();
   const supabase = createClient();
@@ -38,13 +51,43 @@ export default function SuperadminDashboard() {
   }, [router, supabase]);
 
   const carregarEmpresas = async () => {
-    const { data, error } = await supabase.from('empresas').select('*').order('created_at', { ascending: false });
+    const { data, error } = await supabase
+      .from('empresas')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
     if (data) setEmpresas(data);
   };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push('/login');
+  };
+
+  // FUNÇÃO: Cadastrar Nova Empresa (Tenant)
+  const handleCriarCliente = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsCreatingCliente(true);
+
+    const { error } = await supabase
+      .from('empresas')
+      .insert([{
+        nome: novoCliente.nome,
+        email: novoCliente.email,
+        plano: novoCliente.plano,
+        status: novoCliente.status
+      }]);
+
+    setIsCreatingCliente(false);
+
+    if (error) {
+      console.error("Erro ao criar cliente:", error.message);
+      alert("Houve um erro ao cadastrar o cliente. Tente novamente.");
+    } else {
+      setIsNovoClienteModalOpen(false);
+      setNovoCliente({ nome: '', email: '', plano: 'Starter', status: 'Ativo' });
+      await carregarEmpresas(); // Atualiza a tabela instantaneamente
+    }
   };
 
   if (loading) return <div className="flex h-screen items-center justify-center bg-[#F8FFFE] text-[#112031]"><ShieldAlert className="animate-pulse mr-2"/> Verificando credenciais...</div>;
@@ -136,7 +179,11 @@ export default function SuperadminDashboard() {
                   <h1 className="text-2xl font-bold text-[#112031]">Gerenciamento de Clientes (Tenants)</h1>
                   <p className="text-sm text-gray-500 mt-1">Lista de empresas utilizando o software.</p>
                 </div>
-                <Button className="bg-[#112031] hover:bg-[#345B63] text-white rounded-xl px-6 flex items-center gap-2">
+                {/* BOTÃO ATUALIZADO */}
+                <Button 
+                  onClick={() => setIsNovoClienteModalOpen(true)}
+                  className="bg-[#4361EE] hover:bg-[#3A56D4] text-white rounded-xl px-6 flex items-center gap-2 shadow-md transition-all"
+                >
                   <Plus size={18} /> Novo Cliente
                 </Button>
               </div>
@@ -169,7 +216,7 @@ export default function SuperadminDashboard() {
                             </span>
                           </TableCell>
                           <TableCell className="text-right px-6">
-                            <Button variant="outline" size="sm" className="border-gray-200 text-gray-600 hover:bg-gray-50">Gerenciar Conta</Button>
+                            <Button variant="outline" size="sm" className="border-gray-200 text-[#4361EE] hover:bg-gray-50">Gerenciar Conta</Button>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -191,8 +238,72 @@ export default function SuperadminDashboard() {
               </div>
             </div>
           )}
-
         </div>
+
+        {/* MODAL: Novo Cliente (Tenant) */}
+        <Dialog open={isNovoClienteModalOpen} onOpenChange={setIsNovoClienteModalOpen}>
+          <DialogContent className="sm:max-w-[500px] rounded-2xl p-6">
+            <DialogHeader>
+              <DialogTitle className="text-[#112031] text-xl font-bold">Cadastrar Empresa</DialogTitle>
+              <DialogDescription className="text-sm">Registre um novo cliente no seu sistema SaaS.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleCriarCliente} className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-bold text-gray-500 uppercase">Nome da Empresa / Razão Social *</Label>
+                <Input 
+                  required 
+                  value={novoCliente.nome} 
+                  onChange={(e) => setNovoCliente({...novoCliente, nome: e.target.value})} 
+                  className="border-gray-200 focus-visible:ring-[#4361EE]" 
+                  placeholder="Ex: Agência Rocket" 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-bold text-gray-500 uppercase">E-mail do Cliente *</Label>
+                <Input 
+                  required 
+                  type="email" 
+                  value={novoCliente.email} 
+                  onChange={(e) => setNovoCliente({...novoCliente, email: e.target.value})} 
+                  className="border-gray-200 focus-visible:ring-[#4361EE]" 
+                  placeholder="contato@empresa.com" 
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-gray-500 uppercase">Plano Assinado</Label>
+                  <select 
+                    value={novoCliente.plano} 
+                    onChange={(e) => setNovoCliente({...novoCliente, plano: e.target.value})}
+                    className="flex h-10 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4361EE]"
+                  >
+                    <option value="Starter">Starter</option>
+                    <option value="Pro">Pro</option>
+                    <option value="Enterprise">Enterprise</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-gray-500 uppercase">Status da Conta</Label>
+                  <select 
+                    value={novoCliente.status} 
+                    onChange={(e) => setNovoCliente({...novoCliente, status: e.target.value})}
+                    className="flex h-10 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4361EE]"
+                  >
+                    <option value="Ativo">Ativo</option>
+                    <option value="Inativo">Inativo</option>
+                  </select>
+                </div>
+              </div>
+              <DialogFooter className="pt-4">
+                <Button type="button" variant="ghost" onClick={() => setIsNovoClienteModalOpen(false)}>Cancelar</Button>
+                <Button type="submit" className="bg-[#4361EE] text-white hover:bg-[#3A56D4]" disabled={isCreatingCliente}>
+                  {isCreatingCliente ? 'Salvando...' : 'Salvar Empresa'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
       </main>
     </div>
   );
