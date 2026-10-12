@@ -8,297 +8,332 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Building2, LayoutDashboard, Settings, LogOut, Plus, Activity, CreditCard, ShieldAlert, Search } from "lucide-react";
+import { Building2, Users, Database, LogOut, ShieldCheck, Lock, Unlock, Search, Sun, Moon, Menu, X, Copy, Check, Sparkles } from "lucide-react";
 
-export default function SuperadminDashboard() {
+export default function SuperAdminDashboard() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [empresas, setEmpresas] = useState<any[]>([]);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [darkMode, setDarkMode] = useState(false); // Inicia claro para o contraste premium
   
-  const [activeTab, setActiveTab] = useState<'visao_global' | 'gestao_clientes' | 'configuracoes'>('visao_global');
-
-  const [logsAuditoria, setLogsAuditoria] = useState<any[]>([]);
-  const [termoBuscaLogs, setTermoBuscaLogs] = useState('');
-
-  const [isNovoClienteModalOpen, setIsNovoClienteModalOpen] = useState(false);
-  const [isCreatingCliente, setIsCreatingCliente] = useState(false);
-  const [novoCliente, setNovoCliente] = useState({ nome: '', email: '', plano: 'Starter', status: 'Ativo' });
+  const [empresas, setEmpresas] = useState<any[]>([]);
+  const [todosPerfis, setTodosPerfis] = useState<any[]>([]);
+  const [totalLeads, setTotalLeads] = useState(0);
+  const [termoBusca, setTermoBusca] = useState('');
+  
+  const [isBlockModalOpen, setIsBlockModalOpen] = useState(false);
+  const [empresaSelecionada, setEmpresaSelecionada] = useState<any>(null);
+  const [copiadoId, setCopiadoId] = useState<string | null>(null);
 
   const router = useRouter();
   const supabase = createClient();
 
-  useEffect(() => {
-    const verificarAcessoGlobal = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.push('/login'); return; }
+  const carregarDadosGlobais = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { router.push('/login'); return; }
+    
+    const { data: meuPerfil } = await supabase.from('perfis').select('role').eq('id', session.user.id).single();
+    if (meuPerfil?.role !== 'superadmin') {
+      alert("Acesso Negado! Esta área é restrita a administradores master.");
+      router.push('/painel');
+      return;
+    }
 
-      const email = session.user.email;
-      const role = session.user.user_metadata?.role;
-      const isSuperAdmin = email === 'ygor8632@gmail.com' || role === 'superadmin';
+    setUserEmail(session.user.email ?? null);
 
-      if (!isSuperAdmin) { router.push('/painel'); return; }
+    const { data: empresasData } = await supabase.from('empresas').select('*').order('created_at', { ascending: false });
+    const { data: perfisData } = await supabase.from('perfis').select('id, empresa_id');
+    const { count: leadsCount } = await supabase.from('leads').select('*', { count: 'exact', head: true });
 
-      setUserEmail(email ?? null);
-      await carregarEmpresas();
-      await carregarLogs();
-      setLoading(false);
-    };
-    verificarAcessoGlobal();
-  }, [router, supabase]);
+    if (empresasData) setEmpresas(empresasData);
+    if (perfisData) setTodosPerfis(perfisData);
+    if (leadsCount !== null) setTotalLeads(leadsCount);
 
-  const carregarEmpresas = async () => {
-    const { data } = await supabase.from('empresas').select('*').order('created_at', { ascending: false });
-    if (data) setEmpresas(data);
+    setLoading(false);
   };
 
-  const carregarLogs = async () => {
-    const { data } = await supabase.from('logs_auditoria').select('*, empresas(nome)').order('created_at', { ascending: false }).limit(200);
-    if (data) setLogsAuditoria(data);
-  };
+  useEffect(() => { carregarDadosGlobais(); }, [router, supabase]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push('/login');
   };
 
-  const handleCriarCliente = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsCreatingCliente(true);
-
-    const { error } = await supabase.from('empresas').insert([{
-      nome: novoCliente.nome, email: novoCliente.email, plano: novoCliente.plano, status: novoCliente.status
-    }]);
-
-    setIsCreatingCliente(false);
-    if (error) {
-      alert("Houve um erro ao cadastrar o cliente. Tente novamente.");
-    } else {
-      setIsNovoClienteModalOpen(false);
-      setNovoCliente({ nome: '', email: '', plano: 'Starter', status: 'Ativo' });
-      await carregarEmpresas();
-    }
+  const toggleStatusEmpresa = async () => {
+    if (!empresaSelecionada) return;
+    const novoStatus = !empresaSelecionada.ativo;
+    await supabase.from('empresas').update({ ativo: novoStatus }).eq('id', empresaSelecionada.id);
+    setEmpresas(prev => prev.map(emp => emp.id === empresaSelecionada.id ? { ...emp, ativo: novoStatus } : emp));
+    setIsBlockModalOpen(false);
   };
 
-  const logsFiltrados = logsAuditoria.filter(log =>
-    log.acao?.toLowerCase().includes(termoBuscaLogs.toLowerCase()) ||
-    log.detalhes?.toLowerCase().includes(termoBuscaLogs.toLowerCase()) ||
-    log.empresas?.nome?.toLowerCase().includes(termoBuscaLogs.toLowerCase())
+  const copiarIdEmpresa = (id: string) => {
+    navigator.clipboard.writeText(id);
+    setCopiadoId(id);
+    setTimeout(() => setCopiadoId(null), 2000);
+  };
+
+  const getEstatisticasEmpresa = (empresaId: string) => {
+    const usuarios = todosPerfis.filter(p => p.empresa_id === empresaId).length;
+    return { usuarios };
+  };
+
+  const empresasFiltradas = empresas.filter(emp => emp.nome?.toLowerCase().includes(termoBusca.toLowerCase()));
+
+  if (loading) return (
+    <div className={`flex h-screen items-center justify-center font-sans ${darkMode ? 'bg-[#09090b] text-white' : 'bg-[#fafafa] text-zinc-900'}`}>
+      <div className="flex items-center gap-3 animate-pulse">
+        <div className="w-3 h-3 rounded-full bg-indigo-500 animate-ping"></div>
+        <span className="font-medium text-xs tracking-wide uppercase">Carregando painel master...</span>
+      </div>
+    </div>
   );
 
-  if (loading) return <div className="flex h-screen items-center justify-center bg-[#F8FFFE] text-[#112031]"><ShieldAlert className="animate-pulse mr-2"/> Verificando credenciais...</div>;
-
-  const contasAtivas = empresas.filter(e => e.status === 'Ativo').length;
-
   return (
-    <div className="flex h-screen bg-[#F8FFFE] overflow-hidden font-sans">
+    <div className={`flex h-screen overflow-hidden font-sans text-xs md:text-sm transition-colors duration-300 ${darkMode ? 'bg-[#09090b] text-zinc-100' : 'bg-[#f4f7f9] text-zinc-900'}`}>
       
-      {/* SIDEBAR */}
-      <aside className="w-64 bg-[#0A1118] flex flex-col rounded-r-3xl shadow-xl z-10 text-white border-r border-[#152D35]">
-        <div className="p-8 flex flex-col items-center border-b border-[#152D35]/50">
-          <div className="h-16 w-16 rounded-xl bg-gradient-to-br from-[#345B63] to-[#112031] flex items-center justify-center text-2xl font-bold text-white mb-4 shadow-lg border border-[#D4ECDD]/20">D</div>
-          <p className="text-white font-medium text-sm truncate w-full text-center">{userEmail}</p>
-          <span className="text-red-400 text-[10px] mt-1 uppercase tracking-wider font-bold">Superadmin</span>
+      {/* OVERLAY MOBILE */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 md:hidden transition-opacity" onClick={() => setIsMobileMenuOpen(false)} />
+      )}
+
+      {/* SIDEBAR COM A PALETA PREMIUM ESCURA */}
+      <aside 
+        className={`fixed md:relative z-50 h-full w-64 flex flex-col transition-transform duration-300 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
+        style={{
+          backgroundColor: '#021024',
+          borderRight: '1px solid #052659',
+          color: '#C1E8FF'
+        }}
+      >
+        <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden absolute top-4 right-4 text-[#7DA0CA] hover:text-white p-2">
+          <X size={20} />
+        </button>
+
+        {/* LOGO / HEADER SIDEBAR */}
+        <div className="p-6 flex flex-col items-center border-b border-[#052659]">
+          <div className="h-12 w-12 rounded-xl flex items-center justify-center mb-3 shadow-md shadow-black/40" style={{ backgroundColor: '#052659', color: '#ffffff' }}>
+            <Sparkles size={22} className="text-[#C1E8FF]" />
+          </div>
+          <span className="font-bold text-xs tracking-tight text-white">Dons Control Tower</span>
+          <span className="text-[10px] mt-1 px-2.5 py-0.5 rounded-full font-mono tracking-wider" style={{ backgroundColor: '#052659', color: '#C1E8FF' }}>
+            Superadmin
+          </span>
         </div>
 
-        <nav className="flex-1 px-4 space-y-2 mt-6">
-          <button onClick={() => setActiveTab('visao_global')} className={`w-full flex items-center gap-3 px-5 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === 'visao_global' ? 'bg-[#112031] text-white border border-[#345B63]/30 shadow-sm' : 'text-gray-400 hover:bg-[#112031] hover:text-white'}`}>
-            <LayoutDashboard size={18} className={activeTab === 'visao_global' ? "text-[#D4ECDD]" : ""} /> Visão Global
-          </button>
-          <button onClick={() => setActiveTab('gestao_clientes')} className={`w-full flex items-center gap-3 px-5 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === 'gestao_clientes' ? 'bg-[#112031] text-white border border-[#345B63]/30 shadow-sm' : 'text-gray-400 hover:bg-[#112031] hover:text-white'}`}>
-            <Building2 size={18} className={activeTab === 'gestao_clientes' ? "text-[#D4ECDD]" : ""} /> Gerenciar Clientes
-          </button>
-          <button onClick={() => setActiveTab('configuracoes')} className={`w-full flex items-center gap-3 px-5 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === 'configuracoes' ? 'bg-[#112031] text-white border border-[#345B63]/30 shadow-sm' : 'text-gray-400 hover:bg-[#112031] hover:text-white'}`}>
-            <Settings size={18} className={activeTab === 'configuracoes' ? "text-[#D4ECDD]" : ""} /> Configurações
+        {/* NAVEGAÇÃO LATERAL */}
+        <nav className="flex-1 px-3 space-y-2 py-6">
+          <button className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs transition-all" style={{ backgroundColor: '#052659', color: '#ffffff', fontWeight: '700' }}>
+            <Building2 size={16} style={{ color: '#ffffff' }} /> Gestão de Organizações
           </button>
         </nav>
 
-        <div className="p-4 mb-4">
-          <button onClick={handleLogout} className="w-full flex items-center gap-3 text-gray-400 hover:text-white hover:bg-red-500/20 px-5 py-3 rounded-xl text-sm font-medium transition-all">
-            <LogOut size={18} /> Sair da Conta
-          </button>
+        {/* USER / CONTROLO DE TEMA */}
+        <div className="p-4 border-t border-[#052659] space-y-3">
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setDarkMode(!darkMode)} 
+              className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs transition-all font-medium hover:bg-[#052659]"
+              style={{ backgroundColor: '#052659', color: '#C1E8FF', border: '1px solid #5483B3' }}
+            >
+              {darkMode ? <Sun size={14} className="text-[#C1E8FF]" /> : <Moon size={14} className="text-[#C1E8FF]" />}
+              <span>{darkMode ? 'Modo Claro' : 'Modo Escuro'}</span>
+            </button>
+
+            <button onClick={handleLogout} title="Sair" className="p-2.5 rounded-xl transition-all hover:bg-red-500/20 text-red-400" style={{ backgroundColor: '#052659', border: '1px solid #5483B3' }}>
+              <LogOut size={15} />
+            </button>
+          </div>
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto p-10 relative">
-        <div className="max-w-6xl mx-auto space-y-8">
-          
-          {/* TELA 1: Visão Global */}
-          {activeTab === 'visao_global' && (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
-              <div className="flex items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <div>
-                  <h1 className="text-xl font-bold text-[#112031]">Painel de Administração Dons CRM</h1>
-                  <p className="text-sm text-gray-500 mt-1">Visão geral do crescimento e saúde do seu SaaS.</p>
-                </div>
-              </div>
+      {/* CONTEÚDO PRINCIPAL */}
+      <div className="flex-1 flex flex-col h-screen overflow-hidden relative rounded-l-none md:rounded-l-3xl border-l-0 md:border-l" style={{ borderColor: darkMode ? '#27272a' : '#e4e4e7', backgroundColor: darkMode ? '#09090b' : '#f4f7f9' }}>
+        
+        {/* HEADER MOBILE */}
+        <header className={`md:hidden border-b p-4 flex items-center justify-between shadow-xs z-30 ${darkMode ? 'bg-[#0c0c0e] border-zinc-800' : 'bg-white border-zinc-200'}`}>
+          <div className="flex items-center gap-3 font-semibold">
+            <button onClick={() => setIsMobileMenuOpen(true)} className="p-1 rounded-lg">
+              <Menu size={20} />
+            </button>
+            <span className="text-xs font-bold text-[#5483B3]">Torre de Controlo</span>
+          </div>
+          <button onClick={() => setDarkMode(!darkMode)} className="p-2 rounded-xl border border-inherit">
+            {darkMode ? <Sun size={15} className="text-amber-400" /> : <Moon size={15} />}
+          </button>
+        </header>
 
-              {/* FONTES AJUSTADAS (text-3xl -> text-2xl, pesos mais elegantes) */}
-              <div className="grid gap-6 md:grid-cols-3">
-                <Card className="border-none shadow-sm rounded-2xl bg-white border-l-4 border-l-[#345B63]">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total de Contas Ativas</CardTitle>
-                    <Building2 className="text-[#345B63] opacity-70" size={20} />
-                  </CardHeader>
-                  <CardContent><div className="text-2xl font-bold text-[#112031]">{contasAtivas}</div></CardContent>
-                </Card>
-                <Card className="border-none shadow-sm rounded-2xl bg-white border-l-4 border-l-green-500">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Receita Mensal (MRR)</CardTitle>
-                    <CreditCard className="text-green-500 opacity-70" size={20} />
-                  </CardHeader>
-                  <CardContent><div className="text-2xl font-bold text-[#112031]">R$ 297</div></CardContent>
-                </Card>
-                <Card className="border-none shadow-sm rounded-2xl bg-[#112031] text-white">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-xs font-semibold text-[#D4ECDD] uppercase tracking-wider">Acessos à API</CardTitle>
-                    <Activity className="text-[#D4ECDD]" size={20} />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-white">Online</div>
-                    <p className="text-[11px] text-[#D4ECDD] opacity-80 mt-1 font-medium uppercase tracking-wide">Global da Plataforma</p>
-                  </CardContent>
-                </Card>
+        {/* ÁREA DE SCROLL */}
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
+          <div className="max-w-6xl mx-auto space-y-6">
+            
+            {/* CABEÇALHO DA SEÇÃO */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 pb-2 border-b border-inherit">
+              <div>
+                <h1 className="text-lg md:text-xl font-bold tracking-tight">Visão Geral do SaaS</h1>
+                <p className={`text-xs mt-0.5 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                  Monitorização em tempo real de todas as organizações cadastradas no ecossistema.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Sistema Operacional
+                </span>
               </div>
             </div>
-          )}
 
-          {/* TELA 2: Gerenciamento de Clientes */}
-          {activeTab === 'gestao_clientes' && (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
-              <div className="flex items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <div>
-                  <h1 className="text-xl font-bold text-[#112031]">Gerenciamento de Clientes (Tenants)</h1>
-                  <p className="text-sm text-gray-500 mt-1">Lista de empresas utilizando o software.</p>
+            {/* GRID DE MÉTRICAS */}
+            <div className="grid gap-4 md:gap-5 grid-cols-1 sm:grid-cols-3">
+              <div className={`p-5 rounded-2xl border transition-all relative overflow-hidden ${darkMode ? 'bg-[#121216] border-zinc-800/80 shadow-lg' : 'bg-white border-zinc-200 shadow-sm'}`}>
+                <div className="flex items-center justify-between">
+                  <span className={`text-[11px] font-semibold uppercase tracking-wider ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>Empresas Ativas</span>
+                  <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-500 border border-indigo-500/20"><Building2 size={16} /></div>
                 </div>
-                <Button onClick={() => setIsNovoClienteModalOpen(true)} className="bg-[#4361EE] hover:bg-[#3A56D4] text-white rounded-xl px-5 py-2 flex items-center gap-2 shadow-md transition-all text-sm">
-                  <Plus size={16} /> Novo Cliente
-                </Button>
+                <div className="mt-4 flex items-baseline gap-2">
+                  <span className="text-3xl font-extrabold tracking-tight">{empresas.length}</span>
+                </div>
               </div>
 
-              <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
-                <CardHeader className="bg-gray-50/50 border-b border-gray-100 pb-4">
-                  <CardTitle className="text-base text-[#112031]">Empresas Registradas</CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="hover:bg-transparent">
-                        <TableHead className="py-3 px-6 font-semibold text-xs uppercase text-gray-500 tracking-wider">Empresa / Usuário</TableHead>
-                        <TableHead className="py-3 font-semibold text-xs uppercase text-gray-500 tracking-wider">Plano</TableHead>
-                        <TableHead className="py-3 font-semibold text-xs uppercase text-gray-500 tracking-wider">Status</TableHead>
-                        <TableHead className="py-3 font-semibold text-xs uppercase text-gray-500 tracking-wider text-right px-6">Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {empresas.map((empresa) => (
-                        <TableRow key={empresa.id} className="border-gray-50 hover:bg-[#F8FFFE]/50 transition-colors">
-                          <TableCell className="font-medium px-6 py-4">
-                            <div className="text-[#112031] font-bold text-sm">{empresa.nome}</div>
-                            <div className="text-xs text-gray-500 mt-1">{empresa.email}</div>
-                          </TableCell>
-                          <TableCell><span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-600">{empresa.plano}</span></TableCell>
-                          <TableCell>
-                            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${empresa.status === 'Ativo' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                              {empresa.status}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right px-6">
-                            <Button variant="outline" size="sm" className="border-gray-200 text-[#4361EE] hover:bg-gray-50 text-xs">Gerenciar</Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
+              <div className={`p-5 rounded-2xl border transition-all relative overflow-hidden ${darkMode ? 'bg-[#121216] border-zinc-800/80 shadow-lg' : 'bg-white border-zinc-200 shadow-sm'}`}>
+                <div className="flex items-center justify-between">
+                  <span className={`text-[11px] font-semibold uppercase tracking-wider ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>Total de Usuários</span>
+                  <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-500 border border-purple-500/20"><Users size={16} /></div>
+                </div>
+                <div className="mt-4 flex items-baseline gap-2">
+                  <span className="text-3xl font-extrabold tracking-tight">{todosPerfis.length}</span>
+                </div>
+              </div>
+
+              <div className={`p-5 rounded-2xl border transition-all relative overflow-hidden ${darkMode ? 'bg-[#121216] border-zinc-800/80 shadow-lg' : 'bg-white border-zinc-200 shadow-sm'}`}>
+                <div className="flex items-center justify-between">
+                  <span className={`text-[11px] font-semibold uppercase tracking-wider ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>Volume de Leads</span>
+                  <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"><Database size={16} /></div>
+                </div>
+                <div className="mt-4 flex items-baseline gap-2">
+                  <span className="text-3xl font-extrabold tracking-tight">{totalLeads}</span>
+                </div>
+              </div>
             </div>
-          )}
 
-          {/* TELA 3: Configurações e Auditoria */}
-          {activeTab === 'configuracoes' && (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-gray-100 gap-4">
+            {/* TABELA DE GESTÃO DE EMPRESAS */}
+            <div className={`rounded-2xl border overflow-hidden transition-all ${darkMode ? 'bg-[#121216] border-zinc-800/80' : 'bg-white border-zinc-200 shadow-sm'}`}>
+              <div className={`p-4 md:p-6 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${darkMode ? 'border-zinc-800/80' : 'border-zinc-100'}`}>
                 <div>
-                  <h1 className="text-xl font-bold text-[#112031]">Auditoria Global</h1>
-                  <p className="text-sm text-gray-500 mt-1">Monitore todas as ações realizadas pelos clientes no sistema.</p>
+                  <h3 className="font-bold text-sm md:text-base">Organizações Cadastradas</h3>
+                  <p className={`text-xs mt-0.5 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>Gerencie o acesso e identidades de cada tenant.</p>
                 </div>
-                <div className="relative w-full sm:w-80">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                  <Input placeholder="Buscar por empresa, ação ou detalhe..." value={termoBuscaLogs} onChange={(e) => setTermoBuscaLogs(e.target.value)} className="pl-9 bg-gray-50 border-gray-200 focus-visible:ring-[#4361EE] w-full text-sm" />
+                <div className="relative w-full sm:w-72">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
+                  <Input 
+                    placeholder="Filtrar por nome..." 
+                    value={termoBusca} 
+                    onChange={(e) => setTermoBusca(e.target.value)} 
+                    className={`pl-9 text-xs h-9 rounded-xl border transition-colors ${darkMode ? 'bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-500 focus-visible:ring-indigo-500' : 'bg-zinc-50 border-zinc-200 text-zinc-900'}`} 
+                  />
                 </div>
               </div>
 
-              <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-white">
-                <CardContent className="p-0 max-h-[600px] overflow-y-auto">
-                  <Table>
-                    <TableHeader className="bg-gray-50 sticky top-0">
-                      <TableRow>
-                        <TableHead className="font-semibold py-3 text-xs uppercase text-gray-500 tracking-wider">Data / Hora</TableHead>
-                        <TableHead className="font-semibold py-3 text-xs uppercase text-gray-500 tracking-wider">Empresa</TableHead>
-                        <TableHead className="font-semibold py-3 text-xs uppercase text-gray-500 tracking-wider">Ação</TableHead>
-                        <TableHead className="font-semibold py-3 text-xs uppercase text-gray-500 tracking-wider">Detalhes</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {logsFiltrados.map((log) => (
-                        <TableRow key={log.id} className="hover:bg-gray-50/50">
-                          <TableCell className="text-xs text-gray-500 whitespace-nowrap">{new Date(log.created_at).toLocaleString('pt-BR')}</TableCell>
-                          <TableCell className="font-bold text-[#112031] text-sm">{log.empresas?.nome || 'Sistema'}</TableCell>
-                          <TableCell><span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-600 uppercase">{log.acao.replace(/_/g, ' ')}</span></TableCell>
-                          <TableCell className="text-xs text-gray-600 max-w-xs truncate" title={log.detalhes}>{log.detalhes}</TableCell>
-                        </TableRow>
-                      ))}
-                      {logsFiltrados.length === 0 && (
-                        <TableRow><TableCell colSpan={4} className="text-center text-gray-500 py-12 text-sm">Nenhum registro de auditoria encontrado.</TableCell></TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
+              <div className="overflow-x-auto">
+                <Table className="min-w-[700px]">
+                  <TableHeader>
+                    <TableRow className={`border-b ${darkMode ? 'border-zinc-800/80 hover:bg-transparent' : 'border-zinc-100 hover:bg-transparent'}`}>
+                      <TableHead className={`py-3.5 px-6 font-semibold text-[11px] uppercase tracking-wider ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>Organização</TableHead>
+                      <TableHead className={`py-3.5 font-semibold text-[11px] uppercase tracking-wider text-center ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>Data de Cadastro</TableHead>
+                      <TableHead className={`py-3.5 font-semibold text-[11px] uppercase tracking-wider text-center ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>Membros</TableHead>
+                      <TableHead className={`py-3.5 font-semibold text-[11px] uppercase tracking-wider text-center ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>Status do Acesso</TableHead>
+                      <TableHead className={`py-3.5 px-6 font-semibold text-[11px] uppercase tracking-wider text-right ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {empresasFiltradas.length === 0 ? (
+                      <TableRow><TableCell colSpan={5} className="text-center py-12 text-zinc-400 text-xs">Nenhuma organização encontrada.</TableCell></TableRow>
+                    ) : (
+                      empresasFiltradas.map((empresa) => {
+                        const stats = getEstatisticasEmpresa(empresa.id);
+                        return (
+                          <TableRow key={empresa.id} className={`border-b transition-colors ${darkMode ? 'border-zinc-800/50 hover:bg-zinc-800/30' : 'border-zinc-50 hover:bg-zinc-50/80'}`}>
+                            <TableCell className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                <div className="h-9 w-9 shrink-0 rounded-xl flex items-center justify-center font-bold text-xs text-white shadow-sm" style={{ backgroundColor: empresa.cor_primaria || '#5483B3' }}>
+                                  {empresa.nome ? empresa.nome.substring(0, 2).toUpperCase() : '??'}
+                                </div>
+                                <div>
+                                  <div className="font-bold text-xs">{empresa.nome || 'Organização Sem Nome'}</div>
+                                  <button 
+                                    onClick={() => copiarIdEmpresa(empresa.id)} 
+                                    className={`text-[10px] font-mono mt-0.5 flex items-center gap-1 transition-colors ${darkMode ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-600'}`}
+                                    title="Copiar ID da Empresa"
+                                  >
+                                    ID: {empresa.id.substring(0, 10)}... 
+                                    {copiadoId === empresa.id ? <Check size={11} className="text-emerald-500"/> : <Copy size={11}/>}
+                                  </button>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center text-xs font-medium text-zinc-500">
+                              {new Date(empresa.created_at).toLocaleDateString('pt-BR')}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <span className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold ${darkMode ? 'bg-zinc-800/80 text-zinc-300 border border-zinc-700/50' : 'bg-zinc-100 text-zinc-700'}`}>
+                                {stats.usuarios} {stats.usuarios === 1 ? 'membro' : 'membros'}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold tracking-wide uppercase ${empresa.ativo ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-red-500/10 text-red-600 border border-red-500/20'}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${empresa.ativo ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                                {empresa.ativo ? 'Ativa' : 'Suspensa'}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right px-6">
+                              <Button 
+                                onClick={() => { setEmpresaSelecionada(empresa); setIsBlockModalOpen(true); }}
+                                variant="outline" 
+                                size="sm"
+                                className={`h-8 text-xs font-medium rounded-xl transition-all ${empresa.ativo ? 'border-red-500/30 text-red-600 hover:bg-red-500/10' : 'border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10'}`}
+                              >
+                                {empresa.ativo ? <><Lock size={12} className="mr-1.5"/> Suspender</> : <><Unlock size={12} className="mr-1.5"/> Reativar</>}
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
-          )}
-        </div>
 
-        {/* Modal Novo Cliente */}
-        <Dialog open={isNovoClienteModalOpen} onOpenChange={setIsNovoClienteModalOpen}>
-          <DialogContent className="sm:max-w-[500px] rounded-2xl p-6">
-            <DialogHeader>
-              <DialogTitle className="text-[#112031] text-lg font-bold">Cadastrar Empresa</DialogTitle>
-              <DialogDescription className="text-xs">Registre um novo cliente no seu sistema SaaS.</DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleCriarCliente} className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold text-gray-500 uppercase">Nome da Empresa / Razão Social *</Label>
-                <Input required value={novoCliente.nome} onChange={(e) => setNovoCliente({...novoCliente, nome: e.target.value})} className="border-gray-200 text-sm h-10" placeholder="Ex: Agência Rocket" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold text-gray-500 uppercase">E-mail do Cliente *</Label>
-                <Input required type="email" value={novoCliente.email} onChange={(e) => setNovoCliente({...novoCliente, email: e.target.value})} className="border-gray-200 text-sm h-10" placeholder="contato@empresa.com" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold text-gray-500 uppercase">Plano Assinado</Label>
-                  <select value={novoCliente.plano} onChange={(e) => setNovoCliente({...novoCliente, plano: e.target.value})} className="flex h-10 w-full rounded-md border border-gray-200 bg-white px-3 text-sm focus-visible:ring-[#4361EE]">
-                    <option value="Starter">Starter</option><option value="Pro">Pro</option><option value="Enterprise">Enterprise</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold text-gray-500 uppercase">Status da Conta</Label>
-                  <select value={novoCliente.status} onChange={(e) => setNovoCliente({...novoCliente, status: e.target.value})} className="flex h-10 w-full rounded-md border border-gray-200 bg-white px-3 text-sm focus-visible:ring-[#4361EE]">
-                    <option value="Ativo">Ativo</option><option value="Inativo">Inativo</option>
-                  </select>
-                </div>
-              </div>
-              <DialogFooter className="pt-4">
-                <Button type="button" variant="ghost" onClick={() => setIsNovoClienteModalOpen(false)} className="text-sm">Cancelar</Button>
-                <Button type="submit" className="bg-[#4361EE] text-white text-sm h-10" disabled={isCreatingCliente}>{isCreatingCliente ? 'Salvando...' : 'Salvar Empresa'}</Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+          </div>
+        </main>
+      </div>
 
-      </main>
+      {/* MODAL DE CONFIRMAÇÃO DE ESTADO */}
+      <Dialog open={isBlockModalOpen} onOpenChange={setIsBlockModalOpen}>
+        <DialogContent className={`rounded-2xl p-6 border shadow-2xl ${darkMode ? 'bg-[#121216] border-zinc-800 text-zinc-100' : 'bg-white border-zinc-200 text-zinc-900'}`}>
+          <DialogHeader>
+            <DialogTitle className="text-sm md:text-base font-bold flex items-center gap-2.5">
+              {empresaSelecionada?.ativo ? <div className="p-2 rounded-xl bg-red-500/10 text-red-500 border border-red-500/20"><Lock size={16}/></div> : <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"><Unlock size={16}/></div>}
+              {empresaSelecionada?.ativo ? 'Suspender Organização' : 'Reativar Organização'}
+            </DialogTitle>
+            <DialogDescription className={`text-xs mt-2 leading-relaxed ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+              {empresaSelecionada?.ativo 
+                ? `Ao suspender a organização "${empresaSelecionada?.nome}", todos os usuários vinculados perderão o acesso ao CRM imediatamente.`
+                : `Ao reativar a organização "${empresaSelecionada?.nome}", o acesso à plataforma será restabelecido instantaneamente.`
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="pt-4 border-t border-inherit mt-2 flex gap-2 justify-end">
+            <Button variant="ghost" onClick={() => setIsBlockModalOpen(false)} className="text-xs rounded-xl">Cancelar</Button>
+            <Button 
+              onClick={toggleStatusEmpresa} 
+              className={`text-xs font-semibold rounded-xl px-4 ${empresaSelecionada?.ativo ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
+            >
+              {empresaSelecionada?.ativo ? 'Confirmar Suspensão' : 'Confirmar Reativação'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }

@@ -3,177 +3,143 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowRight, ShieldCheck, Zap, BarChart3 } from 'lucide-react';
-import Link from "next/link";
+import { Sparkles, Mail, Lock, ArrowRight, PlayCircle, CheckCircle2 } from 'lucide-react';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  
   const router = useRouter();
   const supabase = createClient();
+  
+  const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError(null);
+    setErro(null);
 
     try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (authError) {
-        setError("E-mail ou senha incorretos.");
-        setLoading(false);
-        return;
-      }
-
-      const userEmail = data.user?.email;
-      const role = data.user?.user_metadata?.role;
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
       
-      if (userEmail === 'ygor8632@gmail.com' || role === 'superadmin') {
+      const { data: perfil } = await supabase.from('perfis').select('role').eq('id', data.user.id).single();
+      
+      if (perfil?.role === 'superadmin') {
         router.push('/dashboard');
       } else {
         router.push('/painel');
       }
-    } catch (err) {
-      setError("Ocorreu um erro inesperado.");
+    } catch (error: any) {
+      setErro('Credenciais inválidas. Verifique o e-mail e a palavra-passe.');
+    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex w-full font-sans bg-white">
+    <div className="min-h-screen flex flex-col md:flex-row font-sans selection:bg-[#5483B3] selection:text-white bg-[#f4f7f9]">
       
-      {/* LADO ESQUERDO */}
-      <div className="hidden lg:flex w-1/2 bg-[#0A1118] text-white flex-col justify-between p-16 relative overflow-hidden">
-        <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-[#4361EE] rounded-full blur-[120px] opacity-20"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-[#345B63] rounded-full blur-[120px] opacity-20"></div>
+      {/* LADO ESQUERDO: BRANDING */}
+      <div className="hidden md:flex md:w-1/2 lg:w-[45%] flex-col justify-between p-12 relative overflow-hidden" style={{ backgroundColor: '#021024', color: '#C1E8FF' }}>
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none opacity-20">
+          <div className="absolute -top-[20%] -left-[10%] w-[70%] h-[70%] rounded-full blur-[120px]" style={{ backgroundColor: '#5483B3' }}></div>
+          <div className="absolute bottom-[10%] -right-[20%] w-[60%] h-[60%] rounded-full blur-[100px]" style={{ backgroundColor: '#052659' }}></div>
+        </div>
 
-        <div className="relative z-10">
-          <div className="mb-16">
-            <img 
-              src="https://donstech.com.br/wp-content/uploads/2026/04/6cb92590-b19d-4961-a672-70eb454dd2411-1-e1776969200237.png" 
-              alt="DonsTech Logo" 
-              className="h-10 object-contain brightness-0 invert" 
-            />
+        <div className="relative z-10 flex items-center gap-2">
+          <div className="h-10 w-10 rounded-xl flex items-center justify-center shadow-lg" style={{ backgroundColor: '#052659' }}>
+            <Sparkles size={20} className="text-white" />
           </div>
+          <span className="font-extrabold text-lg tracking-tight text-white">Dons CRM</span>
+        </div>
 
-          <h1 className="text-5xl font-extrabold leading-[1.15] mb-6">
-            Transforme contatos em <span className="text-[#4361EE]">clientes de alto valor.</span>
+        <div className="relative z-10 space-y-6 max-w-md">
+          <h1 className="text-4xl lg:text-5xl font-black tracking-tight leading-tight text-white">
+            Escale as suas <br />vendas com <span style={{ color: '#5483B3' }}>inteligência</span>.
           </h1>
-          <p className="text-gray-400 text-lg max-w-md mb-12 leading-relaxed">
-            Desenvolvido pela DonsTech para equipes de alta performance. Centralize as suas negociações, elimine tarefas repetitivas e feche negócios com previsibilidade.
+          <p className="text-sm leading-relaxed" style={{ color: '#7DA0CA' }}>
+            Acesso restrito a clientes implementados. Organize o seu pipeline e acompanhe métricas em tempo real.
           </p>
 
-          <div className="grid grid-cols-3 gap-6 pt-8 border-t border-white/10">
-            <div>
-              <div className="flex items-center gap-2 mb-2 text-[#4361EE]">
-                <Zap size={20} />
+          <div className="space-y-3 pt-4">
+            {['Ambiente seguro e isolado', 'Suporte técnico dedicado', 'Atualizações contínuas de performance'].map((item, i) => (
+              <div key={i} className="flex items-center gap-3 text-xs font-medium" style={{ color: '#C1E8FF' }}>
+                <CheckCircle2 size={16} style={{ color: '#5483B3' }} /> {item}
               </div>
-              <div className="text-xl font-bold text-white mb-1">Tempo Real</div>
-              <div className="text-xs text-gray-400 font-medium uppercase tracking-wider">Webhooks integrados</div>
-            </div>
-            <div>
-              <div className="flex items-center gap-2 mb-2 text-green-400">
-                <BarChart3 size={20} />
-              </div>
-              <div className="text-xl font-bold text-white mb-1">Controle</div>
-              <div className="text-xs text-gray-400 font-medium uppercase tracking-wider">Métricas precisas</div>
-            </div>
-            <div>
-              <div className="flex items-center gap-2 mb-2 text-yellow-400">
-                <ShieldCheck size={20} />
-              </div>
-              <div className="text-xl font-bold text-white mb-1">Seguro</div>
-              <div className="text-xs text-gray-400 font-medium uppercase tracking-wider">Infraestrutura SaaS</div>
-            </div>
+            ))}
           </div>
         </div>
 
-        <div className="relative z-10 flex items-center justify-between text-sm text-gray-500 font-medium">
-          <span>&copy; {new Date().getFullYear()} DonsTech. CRM Engine.</span>
-          <a href="#" className="hover:text-white transition-colors">Suporte</a>
+        <div className="relative z-10 flex items-center gap-4 text-xs font-medium" style={{ color: '#7DA0CA' }}>
+          <span>&copy; 2026 Dons CRM. Área restrita.</span>
         </div>
       </div>
 
-      {/* LADO DIREITO */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-[#F8FFFE]">
-        <div className="max-w-md w-full space-y-8">
+      {/* LADO DIREITO: FORMULÁRIO */}
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-12 relative">
+        <div className="w-full max-w-md space-y-8 relative z-10">
           
-          <div className="lg:hidden flex justify-center mb-8">
-            <img 
-              src="https://donstech.com.br/wp-content/uploads/2026/04/6cb92590-b19d-4961-a672-70eb454dd2411-1-e1776969200237.png" 
-              alt="DonsTech Logo" 
-              className="h-8 object-contain" 
-            />
+          <div className="md:hidden flex items-center justify-center gap-2 mb-8">
+            <div className="h-10 w-10 rounded-xl flex items-center justify-center shadow-md" style={{ backgroundColor: '#021024' }}>
+              <Sparkles size={20} className="text-[#C1E8FF]" />
+            </div>
+            <span className="font-extrabold text-xl tracking-tight text-[#021024]">Dons CRM</span>
           </div>
 
-          <div className="text-center lg:text-left">
-            <p className="text-sm font-bold text-[#4361EE] uppercase tracking-wider mb-2">Acesso ao Sistema</p>
-            <h2 className="text-3xl font-extrabold text-[#112031]">Entrar na sua conta</h2>
-            <p className="text-gray-500 mt-2 text-sm">Acesse o seu ambiente de trabalho e retome as suas vendas.</p>
+          <div className="text-center md:text-left space-y-2">
+            <h2 className="text-2xl md:text-3xl font-black tracking-tight text-[#021024]">Bem-vindo de volta</h2>
+            <p className="text-sm text-zinc-500">Insira as suas credenciais fornecidas na implementação.</p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-6 mt-8">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-xs font-bold text-gray-600 uppercase">E-mail corporativo</Label>
-              <Input 
-                id="email" 
-                type="email" 
-                required 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="seu.nome@empresa.com" 
-                className="h-12 border-gray-200 focus-visible:ring-[#4361EE] text-base"
-              />
+          {erro && (
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs font-semibold text-center">
+              {erro}
             </div>
+          )}
 
-            <div className="space-y-2">
-              <div className="flex justify-between items-center mb-1">
-  <Label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Senha</Label>
-  <Link href="/esqueci-senha" className="text-xs font-bold text-[#4361EE] hover:underline">
-    Esqueci minha senha
-  </Link>
-</div>
-              <Input 
-                id="password" 
-                type="password" 
-                required 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••" 
-                className="h-12 border-gray-200 focus-visible:ring-[#4361EE] text-base"
-              />
-            </div>
-
-            {error && (
-              <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg flex items-center gap-2 font-medium">
-                <ShieldCheck size={16} className="text-red-500" />
-                {error}
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">E-mail Profissional</Label>
+              <div className="relative">
+                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nome@empresa.com" className="pl-9 h-11 rounded-xl bg-white border-zinc-200 focus-visible:ring-[#5483B3] text-sm" />
               </div>
-            )}
+            </div>
 
-            <Button 
-              type="submit" 
-              className="w-full h-12 bg-[#4361EE] hover:bg-[#3A56D4] text-white text-base font-bold transition-all shadow-lg shadow-[#4361EE]/20 flex items-center justify-center gap-2"
-              disabled={loading}
-            >
-              {loading ? 'Autenticando...' : 'Acessar Painel'}
-              {!loading && <ArrowRight size={18} />}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Palavra-passe</Label>
+                <button type="button" className="text-[10px] font-bold text-[#5483B3] hover:underline">Esqueceu a senha?</button>
+              </div>
+              <div className="relative">
+                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                <Input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="pl-9 h-11 rounded-xl bg-white border-zinc-200 focus-visible:ring-[#5483B3] text-sm" />
+              </div>
+            </div>
+
+            <Button type="submit" disabled={loading} className="w-full h-11 rounded-xl text-white font-semibold flex items-center justify-center gap-2 transition-all shadow-md hover:-translate-y-0.5 mt-4" style={{ backgroundColor: '#021024' }}>
+              {loading ? 'A processar...' : 'Entrar no Painel'}
+              {!loading && <ArrowRight size={16} />}
             </Button>
           </form>
 
-          <p className="text-center text-xs text-gray-400 mt-8 font-medium">
-            Desenvolvido por DonsTech &copy; Soluções Empresariais
-          </p>
+          {/* ÁREA DE DEMONSTRAÇÃO E SUPORTE */}
+          <div className="pt-6 mt-6 border-t border-zinc-200 space-y-4">
+            <div className="text-center text-xs font-medium text-zinc-500 mb-3">
+              Ainda não é cliente ou quer testar a plataforma?
+            </div>
+            <Button onClick={() => router.push('/demo')} variant="outline" className="w-full h-11 rounded-xl font-bold flex items-center justify-center gap-2 border-zinc-300 hover:bg-zinc-50 text-[#021024]">
+              <PlayCircle size={18} style={{ color: '#5483B3' }} /> Acessar Ambiente de Demonstração
+            </Button>
+            <div className="text-center text-[10px] text-zinc-400 mt-2">
+              Para contratar uma licença, <a href="#" className="underline hover:text-[#5483B3]">fale com um consultor</a>.
+            </div>
+          </div>
+          
         </div>
       </div>
     </div>
