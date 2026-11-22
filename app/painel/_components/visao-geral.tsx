@@ -9,7 +9,7 @@ import { formatarMoeda, formatarMoedaCurta } from '@/lib/marca';
 import { cn } from '@/lib/utils';
 import type { Painel } from '../_lib/use-painel';
 import type { Lead } from '../_lib/tipos';
-import { formatarDataHora, grupoTarefa, leadsPorMes, tempoRelativo, variacaoMensal } from '../_lib/util';
+import { emAberto, estaGanho, etapaFinal, formatarDataHora, grupoTarefa, leadsPorMes, tempoRelativo, valorPonderado, variacaoMensal } from '../_lib/util';
 
 type Props = { crm: Painel; visao: string; abrirLead: (l: Lead) => void; irPara: (secao: string, visao?: string) => void; novoLead: () => void };
 
@@ -28,23 +28,29 @@ export function VisaoGeral({ crm, visao, abrirLead, irPara, novoLead }: Props) {
   const { leads, etapas, tarefas, nomeUsuario } = crm;
 
   const metricas = useMemo(() => {
-    const ultima = etapas[etapas.length - 1];
-    const ganhos = ultima ? leads.filter((l) => l.etapa_id === ultima.id) : [];
-    const abertos = leads.filter((l) => l.etapa_id !== ultima?.id);
+    const ultima = etapaFinal(etapas);
+    const ganhos = leads.filter((l) => l.situacao !== 'perdido' && estaGanho(l, etapas));
+    const abertos = leads.filter((l) => emAberto(l, etapas));
+    const perdidos = leads.filter((l) => l.situacao === 'perdido').length;
+    const decididos = ganhos.length + perdidos;
     return {
       pipeline: abertos.reduce((s, l) => s + (l.valor || 0), 0),
+      ponderado: abertos.reduce((s, l) => s + valorPonderado(l, etapas), 0),
+      perdidos,
+      decididos,
       pipelineVar: variacaoMensal(abertos, (l) => l.created_at, (l) => l.valor || 0).delta,
       mes: variacaoMensal(leads, (l) => l.created_at),
       ganhos: ganhos.length,
       ganhosValor: ganhos.reduce((s, l) => s + (l.valor || 0), 0),
       conversao: leads.length ? (ganhos.length / leads.length) * 100 : 0,
+      taxaGanho: decididos ? (ganhos.length / decididos) * 100 : null,
       ultimaEtapa: ultima?.nome,
     };
   }, [leads, etapas]);
 
   const porMes = useMemo(() => leadsPorMes(leads), [leads]);
   const funil = useMemo(
-    () => etapas.map((e) => ({ name: e.nome, value: leads.filter((l) => l.etapa_id === e.id).length, cor: e.cor })),
+    () => etapas.map((e) => ({ name: e.nome, value: leads.filter((l) => l.etapa_id === e.id && l.situacao !== 'perdido').length, cor: e.cor })),
     [etapas, leads],
   );
   const origens = useMemo(() => {
@@ -76,10 +82,10 @@ export function VisaoGeral({ crm, visao, abrirLead, irPara, novoLead }: Props) {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 [&>*]:min-w-0">
         <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:col-span-7 [&>*]:min-w-0">
-          <StatCard className="col-span-2 sm:col-span-1" destaque rotulo="Valor em pipeline" icone={CircleDollarSign} valor={formatarMoedaCurta(metricas.pipeline)} delta={metricas.pipelineVar} legenda="este mês" />
+          <StatCard className="col-span-2 sm:col-span-1" destaque rotulo="Valor em pipeline" icone={CircleDollarSign} valor={formatarMoedaCurta(metricas.pipeline)} delta={metricas.pipelineVar} legenda={`≈ ${formatarMoedaCurta(metricas.ponderado)} provável`} />
           <StatCard rotulo="Leads no mês" icone={Inbox} valor={metricas.mes.atual} delta={metricas.mes.delta} legenda="vs. mês anterior" />
           <StatCard rotulo={metricas.ultimaEtapa ?? 'Vendas'} icone={Trophy} valor={metricas.ganhos} legenda={formatarMoeda(metricas.ganhosValor)} />
-          <StatCard className="col-span-2 sm:col-span-1" rotulo="Conversão" icone={Percent} valor={`${metricas.conversao.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`} legenda={`${leads.length} leads no total`} />
+          <StatCard className="col-span-2 sm:col-span-1" rotulo="Conversão" icone={Percent} valor={`${metricas.conversao.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`} legenda={metricas.taxaGanho != null ? `${metricas.taxaGanho.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}% dos fechados foram ganhos` : `${leads.length} leads no total`} />
         </div>
 
         <GlassCard className="flex flex-col lg:col-span-5">

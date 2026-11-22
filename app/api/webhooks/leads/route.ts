@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getSupabaseAdmin } from '@/utils/supabase/admin';
+import { chaveTelefone } from '@/app/painel/_lib/util';
 
 // CORS para chamadas de navegador (se necessário)
 const corsHeaders = {
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
     let body;
     try {
       body = await request.json();
-    } catch (e) {
+    } catch {
       return NextResponse.json({ error: 'Payload JSON inválido.' }, { status: 400, headers: corsHeaders });
     }
 
@@ -79,17 +80,30 @@ export async function POST(request: Request) {
 
     const { nome, email, telefone, origem, valor } = validData.data;
 
-    // 4. Deduplicação (Impede Spam se e-mail ou telefone já existirem nesta empresa)
-    if (email || telefone) {
-      let query = supabaseAdmin.from('leads').select('id').eq('empresa_id', empresa.id);
-      if (email && telefone) query = query.or(`email.eq.${email},telefone.eq.${telefone}`);
-      else if (email) query = query.eq('email', email);
-      else if (telefone) query = query.eq('telefone', telefone);
-
-      const { data: leadExistente } = await query.limit(1);
-      if (leadExistente && leadExistente.length > 0) {
-        return NextResponse.json({ success: true, message: 'Lead já existe.', lead_id: leadExistente[0].id }, { status: 200, headers: corsHeaders });
-      }
+    // 4. Deduplicação: mesmo WhatsApp (DDD + 8 últimos dígitos, com ou sem 55/9º dígito)
+    //    ou mesmo e-mail num lead EM ABERTO desta empresa. Em vez de criar outro lead,
+    //    registra o novo contato no histórico do existente. Lead ganho/perdido: cria um novo.
+    const chave = chaveTelefone(telefone);
+    const emailNorm = (email || '').trim().toLowerCase();
+    let existente: { id: string } | null = null;
+    if (chave) {
+      const { data } = await supabaseAdmin.from('leads').select('id')
+        .eq('empresa_id', empresa.id).eq('situacao', 'aberto').eq('chave_telefone', chave)
+        .order('created_at', { ascending: false }).limit(1);
+      existente = data?.[0] ?? null;
+    }
+    if (!existente && emailNorm) {
+      const { data } = await supabaseAdmin.from('leads').select('id')
+        .eq('empresa_id', empresa.id).eq('situacao', 'aberto').ilike('email', emailNorm.replace(/[\\%_]/g, (c) => `\\${c}`))
+        .order('created_at', { ascending: false }).limit(1);
+      existente = data?.[0] ?? null;
+    }
+    if (existente) {
+      await supabaseAdmin.from('lead_atividades').insert([{
+        empresa_id: empresa.id, lead_id: existente.id, usuario_id: null, tipo: 'webhook',
+        descricao: `Novo contato${origem ? ` (${origem})` : ''}`,
+      }]);
+      return NextResponse.json({ success: true, duplicado: true, message: 'Lead já existe; contato registrado no histórico.', lead_id: existente.id }, { status: 200, headers: corsHeaders });
     }
 
     // 5. Descobrir a primeira etapa pelo ID e não pelo nome
@@ -114,11 +128,10 @@ export async function POST(request: Request) {
 
     if (leadError) throw leadError;
 
-    // 7. (Opcional/Futuro) Inserir registo inicial na tabela `lead_movimentos`
-    // await supabaseAdmin.from('lead_movimentos').insert([{ lead_id: novaLead.id, para_etapa_id: etapa.id, usuario_id: null }]);
+    await supabaseAdmin.from('lead_atividades').insert([{ empresa_id: empresa.id, lead_id: novaLead.id, usuario_id: null, tipo: 'webhook', descricao: origem ? `Entrou por ${origem}` : 'Entrou pelo webhook' }]);
 
     return NextResponse.json({ success: true, lead: novaLead }, { headers: corsHeaders });
-  } catch (error: any) {
+  } catch {
     return NextResponse.json({ error: 'Falha no servidor.' }, { status: 500, headers: corsHeaders });
   }
 }

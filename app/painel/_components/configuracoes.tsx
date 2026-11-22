@@ -1,7 +1,7 @@
 'use client';
 
-import { useId, useRef, useState } from 'react';
-import { Check, Copy, Download, FileUp, ImageUp, Moon, Plus, Sun } from 'lucide-react';
+import { useId, useMemo, useRef, useState } from 'react';
+import { Check, Copy, Download, FileUp, ImageUp, MessageSquareText, Moon, Plus, Sun } from 'lucide-react';
 import { CardTitle, GlassCard, PageHeader, Toggle } from '@/components/glass';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,12 +13,14 @@ import { COR_PADRAO, hexValido } from '@/lib/marca';
 import type { TipoImagem } from '@/lib/marca-storage';
 import { cn } from '@/lib/utils';
 import type { Painel } from '../_lib/use-painel';
+import { acharDuplicados, CAMPOS_IMPORTACAO, lerPlanilha, montarLinhas, preencherModelo, type CampoImportacao } from '../_lib/util';
 
 /* ---------------- Configurações: Marca · Funil · Perfil ---------------- */
 
 export function Configuracoes({ crm, visao }: { crm: Painel; visao: string }) {
   if (visao === 'marca' && crm.papel === 'admin') return <Marca crm={crm} />;
   if (visao === 'funil' && crm.papel === 'admin') return <Funil crm={crm} />;
+  if (visao === 'mensagens' && crm.papel === 'admin') return <Mensagens crm={crm} />;
   return <Perfil crm={crm} />;
 }
 
@@ -187,16 +189,29 @@ function Funil({ crm }: { crm: Painel }) {
   return (
     <div className="space-y-5">
       <PageHeader titulo="Etapas do funil" subtitulo="A ordem aqui é a ordem das colunas do Kanban. A última etapa conta como venda." />
-      <GlassCard className="max-w-2xl">
+      <GlassCard className="max-w-3xl">
+        <p className="mb-3 text-xs text-muted-foreground">
+          <strong className="font-medium text-foreground">Chance</strong> é a probabilidade de fechar quem está na etapa; com ela o Kanban mostra o valor ponderado.{' '}
+          <strong className="font-medium text-foreground">Parado após</strong> é quantos dias sem nenhuma atividade até o card ganhar o aviso “parado”.
+        </p>
         <ol className="space-y-2">
           {crm.etapas.map((etapa, i) => {
-            const n = crm.leads.filter((l) => l.etapa_id === etapa.id).length;
+            const n = crm.leads.filter((l) => l.etapa_id === etapa.id && (l.situacao ?? 'aberto') !== 'perdido').length;
+            const ultima = i === crm.etapas.length - 1;
             return (
-              <li key={etapa.id} className="flex items-center gap-3 rounded-2xl bg-pill-active/45 px-3 py-2.5 dark:bg-white/5">
+              <li key={etapa.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-pill-active/45 px-3 py-2.5 dark:bg-white/5">
                 <span className="tabular w-5 text-center text-xs text-muted-foreground">{i + 1}</span>
                 <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: etapa.cor }} aria-hidden />
-                <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{etapa.nome}</span>
+                <span className="min-w-[8rem] flex-1 truncate text-[13px] font-medium">{etapa.nome}</span>
                 <span className="tabular text-xs text-muted-foreground">{n} {n === 1 ? 'lead' : 'leads'}</span>
+                {ultima ? (
+                  <span className="text-xs text-muted-foreground">Venda concluída · 100%</span>
+                ) : (
+                  <>
+                    <CampoNumero rotulo="Chance" sufixo="%" min={0} max={100} valor={etapa.probabilidade ?? null} aoSalvar={(v) => crm.salvarEtapa(etapa.id, { probabilidade: v })} etapa={etapa.nome} />
+                    <CampoNumero rotulo="Parado após" sufixo="dias" min={1} max={365} valor={etapa.dias_parado ?? null} aoSalvar={(v) => crm.salvarEtapa(etapa.id, { dias_parado: v })} etapa={etapa.nome} />
+                  </>
+                )}
                 <HoldToDeleteButton rotulo="Excluir" rotuloFeito="Excluída" descricao={`etapa ${etapa.nome}`} aoConfirmar={() => crm.removerEtapa(etapa)} />
               </li>
             );
@@ -208,6 +223,137 @@ function Funil({ crm }: { crm: Painel }) {
           <Button type="submit"><Plus /> Adicionar</Button>
         </form>
       </GlassCard>
+    </div>
+  );
+}
+
+/** Número salvo ao sair do campo (ou Enter). Vazio = sem valor. */
+function CampoNumero({ rotulo, sufixo, min, max, valor, aoSalvar, etapa }: { rotulo: string; sufixo: string; min: number; max: number; valor: number | null; aoSalvar: (v: number | null) => Promise<boolean>; etapa: string }) {
+  const id = useId();
+  const [texto, setTexto] = useState(valor == null ? '' : String(valor));
+  const [ultimo, setUltimo] = useState(valor);
+  if (valor !== ultimo) { setUltimo(valor); setTexto(valor == null ? '' : String(valor)); }
+  const salvar = async () => {
+    const n = texto.trim() === '' ? null : Math.round(Number(texto));
+    if (n !== null && (!Number.isFinite(n) || n < min || n > max)) { setTexto(valor == null ? '' : String(valor)); return; }
+    if (n !== valor) await aoSalvar(n);
+  };
+  return (
+    <span className="flex items-center gap-1.5">
+      <label htmlFor={id} className="text-xs text-muted-foreground">{rotulo}<span className="sr-only"> em {etapa}</span></label>
+      <input
+        id={id} type="number" inputMode="numeric" min={min} max={max} value={texto}
+        onChange={(e) => setTexto(e.target.value)} onBlur={salvar} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+        className="tabular h-8 w-14 rounded-lg border border-input bg-background/60 px-2 text-right text-[13px] dark:bg-white/6"
+      />
+      <span className="text-xs text-muted-foreground">{sufixo}</span>
+    </span>
+  );
+}
+
+const VARIAVEIS = ['{primeiro_nome}', '{nome}', '{empresa}', '{vendedor}'];
+
+function Mensagens({ crm }: { crm: Painel }) {
+  const [editando, setEditando] = useState<{ id?: string; etapa_id: string | null; titulo: string; texto: string } | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  const textoRef = useRef<HTMLTextAreaElement>(null);
+  const nomeEtapa = (id?: string | null) => (id ? crm.etapas.find((e) => e.id === id)?.nome ?? 'Etapa removida' : 'Qualquer etapa');
+
+  const salvar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editando || !editando.titulo.trim() || !editando.texto.trim()) return;
+    setSalvando(true);
+    if (await crm.salvarModelo(editando)) setEditando(null);
+    setSalvando(false);
+  };
+
+  const inserir = (v: string) => {
+    const el = textoRef.current;
+    if (!editando) return;
+    const ini = el?.selectionStart ?? editando.texto.length;
+    const fim = el?.selectionEnd ?? ini;
+    const texto = editando.texto.slice(0, ini) + v + editando.texto.slice(fim);
+    setEditando({ ...editando, texto });
+    requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(ini + v.length, ini + v.length); });
+  };
+
+  const exemplo = editando ? preencherModelo(editando.texto, { nome: 'Maria Silva', empresa: crm.empresa?.nome, vendedor: crm.nomeUsuario }) : '';
+
+  return (
+    <div className="space-y-5">
+      <PageHeader titulo="Mensagens prontas" subtitulo="Textos de WhatsApp que a equipe envia com um clique da ficha do lead. Cada envio fica no histórico." />
+      <div className="grid max-w-4xl gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <GlassCard className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle titulo="Suas mensagens" />
+            <Button size="sm" onClick={() => setEditando({ etapa_id: null, titulo: '', texto: '' })}><Plus /> Nova</Button>
+          </div>
+          {crm.modelos.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border p-5 text-center text-[13px] text-muted-foreground">
+              <MessageSquareText className="mx-auto mb-2 size-5" aria-hidden />
+              Nenhuma mensagem ainda. Comece pelo primeiro contato: é a que a equipe mais repete.
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {crm.modelos.map((m) => (
+                <li key={m.id} className="flex items-start gap-2 rounded-2xl bg-pill-active/45 p-3 dark:bg-white/5">
+                  <button type="button" onClick={() => setEditando({ id: m.id, etapa_id: m.etapa_id ?? null, titulo: m.titulo, texto: m.texto })} className="min-w-0 flex-1 text-left">
+                    <span className="block text-[13px] font-medium">{m.titulo}</span>
+                    <span className="block text-xs text-muted-foreground">{nomeEtapa(m.etapa_id)}</span>
+                    <span className="mt-1 line-clamp-2 block text-xs text-muted-foreground">{m.texto}</span>
+                  </button>
+                  <HoldToDeleteButton rotulo="Apagar" rotuloFeito="Apagada" descricao={`mensagem ${m.titulo}`} aoConfirmar={() => crm.apagarModelo(m.id)} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </GlassCard>
+
+        {editando ? (
+          <GlassCard>
+            <form onSubmit={salvar} className="space-y-3">
+              <CardTitle titulo={editando.id ? 'Editar mensagem' : 'Nova mensagem'} />
+              <div className="space-y-1.5">
+                <Label htmlFor="mod-titulo">Nome</Label>
+                <Input id="mod-titulo" value={editando.titulo} maxLength={80} required placeholder="Ex.: Primeiro contato" onChange={(e) => setEditando({ ...editando, titulo: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="mod-etapa">Aparece primeiro na etapa</Label>
+                <select id="mod-etapa" value={editando.etapa_id ?? ''} onChange={(e) => setEditando({ ...editando, etapa_id: e.target.value || null })} className={SELECT}>
+                  <option value="">Qualquer etapa</option>
+                  {crm.etapas.map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="mod-texto">Texto</Label>
+                <textarea id="mod-texto" ref={textoRef} value={editando.texto} maxLength={1000} required rows={5} onChange={(e) => setEditando({ ...editando, texto: e.target.value })} className="w-full rounded-xl border border-input bg-background/60 px-3 py-2 text-[13px] dark:bg-white/6" />
+                <div className="flex flex-wrap gap-1.5" aria-label="Inserir variável">
+                  {VARIAVEIS.map((v) => (
+                    <button key={v} type="button" onClick={() => inserir(v)} className="rounded-full border border-glass-border px-2.5 py-1 font-mono text-[11px] hover:bg-pill-active">{v}</button>
+                  ))}
+                </div>
+              </div>
+              {exemplo && (
+                <div className="rounded-2xl bg-[#dcf8c6]/70 p-3 text-[13px] text-[#111] dark:bg-emerald-900/40 dark:text-emerald-50">
+                  <span className="mb-1 block text-[11px] font-medium opacity-70">Como chega para “Maria Silva”</span>
+                  {exemplo}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Button type="submit" disabled={salvando}>{salvando ? 'Salvando…' : 'Salvar'}</Button>
+                <Button type="button" variant="outline" onClick={() => setEditando(null)}>Cancelar</Button>
+              </div>
+            </form>
+          </GlassCard>
+        ) : (
+          <GlassCard className="space-y-2 text-[13px] text-muted-foreground">
+            <CardTitle titulo="Como funciona" />
+            <p>Na ficha do lead, o botão WhatsApp lista primeiro as mensagens da etapa em que ele está.</p>
+            <p>Use <span className="font-mono text-xs text-foreground">{'{primeiro_nome}'}</span> e as outras variáveis: o texto sai preenchido para cada pessoa.</p>
+            <p>Todo envio fica registrado no histórico do lead e conta como atividade.</p>
+          </GlassCard>
+        )}
+      </div>
     </div>
   );
 }
@@ -286,44 +432,145 @@ Content-Type: application/json
   );
 }
 
+const SELECT = 'h-9 w-full appearance-none rounded-xl border border-input bg-pill-active/55 px-3 text-[13px] dark:bg-white/6';
+
 function Importar({ crm }: { crm: Painel }) {
-  const [arquivo, setArquivo] = useState<File | null>(null);
+  const [arquivo, setArquivo] = useState<string | null>(null);
+  const [planilha, setPlanilha] = useState<{ cabecalho: string[]; linhas: string[][] } | null>(null);
+  const [mapa, setMapa] = useState<CampoImportacao[]>([]);
+  const [pularDuplicados, setPularDuplicados] = useState(true);
   const [importando, setImportando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
 
   const baixarModelo = () => {
-    const blob = new Blob(['nome,email,telefone,origem,valor\nJoão Silva,joao@email.com,11999999999,Importação,150.00'], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['﻿nome;telefone;email;origem;valor;documento\nJoão Silva;11999999999;joao@email.com;Indicação;1.500,00;\n'], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'modelo_crm.csv';
+    a.download = 'modelo-leads.csv';
     a.click();
     URL.revokeObjectURL(a.href);
   };
 
-  const enviar = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!arquivo) return;
+  const escolher = async (f: File | undefined) => {
+    setErro(null);
+    if (!f) return;
+    try {
+      const r = lerPlanilha(await f.text());
+      setArquivo(f.name);
+      setPlanilha({ cabecalho: r.cabecalho, linhas: r.linhas });
+      setMapa(r.mapa);
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Não foi possível ler o arquivo.');
+    }
+  };
+
+  const recomecar = () => { setArquivo(null); setPlanilha(null); setMapa([]); setErro(null); };
+
+  const previa = useMemo(() => {
+    if (!planilha) return null;
+    const { validas, semNome } = montarLinhas(planilha.linhas, mapa);
+    const vistas: typeof validas = [];
+    const itens = validas.map((linha) => {
+      const dup = acharDuplicados(crm.leads, linha)[0] ?? null;
+      const repetidaNoArquivo = !dup && acharDuplicados(vistas.map((v, i) => ({ ...v, id: String(i), empresa_id: '', created_at: '' })), linha).length > 0;
+      vistas.push(linha);
+      return { linha, dup, repetidaNoArquivo };
+    });
+    return { itens, semNome, duplicados: itens.filter((i) => i.dup || i.repetidaNoArquivo).length };
+  }, [planilha, mapa, crm.leads]);
+
+  const temNome = mapa.includes('nome');
+  const aImportar = previa ? previa.itens.filter((i) => !pularDuplicados || (!i.dup && !i.repetidaNoArquivo)).map((i) => i.linha) : [];
+
+  const importar = async () => {
     setImportando(true);
-    if (await crm.importarCSV(arquivo)) setArquivo(null);
+    if (await crm.importarLeads(aImportar)) recomecar();
     setImportando(false);
+  };
+
+  const trocarCampo = (i: number, campo: CampoImportacao) => {
+    setMapa((m) => m.map((c, j) => (j === i ? campo : campo !== 'ignorar' && c === campo ? 'ignorar' : c)));
   };
 
   return (
     <div className="space-y-5">
-      <PageHeader titulo="Importar planilha" subtitulo="Traga seus contatos de um CSV. Eles entram na primeira etapa do funil." />
-      <GlassCard className="max-w-2xl">
-        <form onSubmit={enviar} className="space-y-4">
-          <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border px-6 py-10 text-center transition-colors hover:border-brand/60 hover:bg-pill-active/30">
+      <PageHeader titulo="Importar planilha" subtitulo="Traga contatos de um CSV (Excel, Google Planilhas). Você confere as colunas e os repetidos antes de importar." />
+      {!planilha ? (
+        <GlassCard className="max-w-2xl space-y-4">
+          <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border px-6 py-10 text-center transition-colors focus-within:border-brand hover:border-brand/60 hover:bg-pill-active/30">
             <FileUp className="size-6 text-muted-foreground" aria-hidden />
-            <span className="text-[13px] font-medium">{arquivo ? arquivo.name : 'Escolha um arquivo .csv'}</span>
-            <span className="text-xs text-muted-foreground">Colunas: nome, email, telefone, origem, valor</span>
-            <input type="file" accept=".csv" className="sr-only" onChange={(e) => setArquivo(e.target.files?.[0] ?? null)} />
+            <span className="text-[13px] font-medium">Escolha um arquivo .csv</span>
+            <span className="text-xs text-muted-foreground">Separado por vírgula ou ponto e vírgula. A primeira linha deve ter os nomes das colunas.</span>
+            <input type="file" accept=".csv,text/csv" className="sr-only" onChange={(e) => { escolher(e.target.files?.[0]); e.target.value = ''; }} />
           </label>
-          <div className="flex flex-wrap gap-2">
-            <Button type="submit" disabled={!arquivo || importando}>{importando ? 'Importando…' : 'Importar leads'}</Button>
-            <Button type="button" variant="outline" onClick={baixarModelo}><Download /> Baixar modelo</Button>
-          </div>
-        </form>
-      </GlassCard>
+          {erro && <p role="alert" className="text-[13px] text-destructive">{erro}</p>}
+          <Button type="button" variant="outline" onClick={baixarModelo}><Download /> Baixar planilha modelo</Button>
+        </GlassCard>
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+          <GlassCard className="space-y-3 self-start">
+            <CardTitle titulo="1. Colunas" />
+            <p className="text-xs text-muted-foreground">{arquivo} · {planilha.linhas.length} {planilha.linhas.length === 1 ? 'linha' : 'linhas'}. Diga o que é cada coluna.</p>
+            <ul className="space-y-2.5">
+              {planilha.cabecalho.map((h, i) => (
+                <li key={i} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-center gap-2">
+                  <label htmlFor={`col-${i}`} className="truncate text-[13px] font-medium" title={h}>{h || `Coluna ${i + 1}`}</label>
+                  <select id={`col-${i}`} value={mapa[i]} onChange={(e) => trocarCampo(i, e.target.value as CampoImportacao)} className={SELECT}>
+                    {CAMPOS_IMPORTACAO.map((c) => <option key={c.id} value={c.id}>{c.rotulo}</option>)}
+                  </select>
+                </li>
+              ))}
+            </ul>
+            {!temNome && <p role="alert" className="text-[13px] text-destructive">Escolha qual coluna é o Nome.</p>}
+          </GlassCard>
+
+          <GlassCard className="min-w-0 space-y-3">
+            <CardTitle titulo="2. Conferir" />
+            {previa && temNome && (
+              <>
+                <p className="text-[13px]" aria-live="polite">
+                  <strong className="tabular">{previa.itens.length}</strong> {previa.itens.length === 1 ? 'contato' : 'contatos'} lidos
+                  {previa.duplicados > 0 && <> · <strong className="tabular text-amber-700 dark:text-amber-300">{previa.duplicados}</strong> já {previa.duplicados === 1 ? 'existe' : 'existem'}</>}
+                  {previa.semNome > 0 && <> · {previa.semNome} sem nome (ficam de fora)</>}
+                </p>
+                {previa.duplicados > 0 && (
+                  <label className="flex items-center gap-2 text-[13px]">
+                    <input type="checkbox" checked={pularDuplicados} onChange={(e) => setPularDuplicados(e.target.checked)} className="size-4 accent-[var(--brand-solid)]" />
+                    Não importar os repetidos (mesmo WhatsApp, e-mail ou CPF/CNPJ)
+                  </label>
+                )}
+                <div className="max-h-[420px] overflow-auto rounded-2xl border border-border">
+                  <table className="w-full text-left text-[13px]">
+                    <thead className="sticky top-0 bg-background/90 text-xs text-muted-foreground backdrop-blur">
+                      <tr><th className="px-3 py-2 font-medium">Nome</th><th className="px-3 py-2 font-medium">WhatsApp</th><th className="px-3 py-2 font-medium">E-mail</th><th className="px-3 py-2 font-medium">Situação</th></tr>
+                    </thead>
+                    <tbody>
+                      {previa.itens.slice(0, 200).map(({ linha, dup, repetidaNoArquivo }, i) => (
+                        <tr key={i} className={cn('border-t border-border', (dup || repetidaNoArquivo) && pularDuplicados && 'text-muted-foreground')}>
+                          <td className="max-w-[180px] truncate px-3 py-2">{linha.nome}</td>
+                          <td className="whitespace-nowrap px-3 py-2">{linha.telefone || '—'}</td>
+                          <td className="max-w-[200px] truncate px-3 py-2">{linha.email || '—'}</td>
+                          <td className="whitespace-nowrap px-3 py-2">
+                            {dup ? <span className="text-amber-700 dark:text-amber-300">Já existe: {dup.nome}</span> : repetidaNoArquivo ? <span className="text-amber-700 dark:text-amber-300">Repetido no arquivo</span> : 'Novo'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {previa.itens.length > 200 && <p className="text-xs text-muted-foreground">Mostrando 200 de {previa.itens.length}.</p>}
+              </>
+            )}
+            <div className="flex flex-wrap gap-2 border-t border-border pt-3">
+              <Button type="button" onClick={importar} disabled={!temNome || importando || aImportar.length === 0}>
+                {importando ? 'Importando…' : `Importar ${aImportar.length} ${aImportar.length === 1 ? 'lead' : 'leads'}`}
+              </Button>
+              <Button type="button" variant="outline" onClick={recomecar}>Escolher outro arquivo</Button>
+            </div>
+            <p className="text-xs text-muted-foreground">Os leads entram na primeira etapa do funil. Dá para desfazer logo depois de importar.</p>
+          </GlassCard>
+        </div>
+      )}
     </div>
   );
 }

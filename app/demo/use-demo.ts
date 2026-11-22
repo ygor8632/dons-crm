@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { prepararImagem, type TipoImagem } from '@/lib/marca-storage';
 import type { Painel } from '../painel/_lib/use-painel';
-import type { Anotacao, Empresa, Etapa, Lead, Membro, Papel, Tarefa } from '../painel/_lib/tipos';
-import { lerLeadsCSV } from '../painel/_lib/util';
+import type { Anotacao, Atividade, Empresa, Etapa, Lead, LinhaImportacao, Membro, ModeloMensagem, Papel, Tarefa, TipoAtividade } from '../painel/_lib/tipos';
+import { emAberto, etapaFinal, proximaTarefa } from '../painel/_lib/util';
+import { avisarComProximoPasso, emDias } from '../painel/_components/proximo-passo';
 
 /*
  * Demonstração: a mesma interface do usePainel, com dados fictícios em memória.
@@ -23,10 +24,10 @@ const dias = (d: number, hora?: number) => {
 };
 
 const ETAPAS: Etapa[] = [
-  { id: 'e1', empresa_id: EMPRESA_ID, nome: 'Aguardando contato', cor: '#c99a06', ordem: 1 },
-  { id: 'e2', empresa_id: EMPRESA_ID, nome: 'Em atendimento', cor: '#5d73e0', ordem: 2 },
-  { id: 'e3', empresa_id: EMPRESA_ID, nome: 'Proposta enviada', cor: '#da4c3c', ordem: 3 },
-  { id: 'e4', empresa_id: EMPRESA_ID, nome: 'Venda concluída', cor: '#1f8f4e', ordem: 4 },
+  { id: 'e1', empresa_id: EMPRESA_ID, nome: 'Aguardando contato', cor: '#c99a06', ordem: 1, probabilidade: 10, dias_parado: 2 },
+  { id: 'e2', empresa_id: EMPRESA_ID, nome: 'Em atendimento', cor: '#5d73e0', ordem: 2, probabilidade: 30, dias_parado: 5 },
+  { id: 'e3', empresa_id: EMPRESA_ID, nome: 'Proposta enviada', cor: '#da4c3c', ordem: 3, probabilidade: 60, dias_parado: 7 },
+  { id: 'e4', empresa_id: EMPRESA_ID, nome: 'Venda concluída', cor: '#1f8f4e', ordem: 4, probabilidade: 100, dias_parado: null },
 ];
 
 const EQUIPE: Membro[] = [
@@ -72,7 +73,34 @@ function leadsIniciais(): Lead[] {
     vendedor_id: resp,
     vendedor: resp ? { nome: nomeDe(resp) } : null,
     created_at: dias(-d),
+    situacao: etapa === 'e4' ? 'ganho' : 'aberto',
+    // Alguns leads sem atividade há dias, para aparecerem como "parados"
+    etapa_desde: dias(-d),
+    ultima_atividade_em: dias(-Math.min(d, [0, 1, 4].includes(i) ? 0 : d)),
   }));
+}
+
+function leadsPerdidos(): Lead[] {
+  return [
+    { id: 'l90', empresa_id: EMPRESA_ID, nome: 'Buffet Festa Boa', email: 'contato@festaboa.exemplo', telefone: '11987001122', origem: 'Instagram', etapa_id: 'e2', valor: 5200, vendedor_id: 'demo-bia', vendedor: { nome: 'Beatriz Souza' }, created_at: dias(-20), situacao: 'perdido', motivo_perda: 'Preço', fechado_em: dias(-6), etapa_desde: dias(-12), ultima_atividade_em: dias(-6) },
+  ];
+}
+
+function modelosIniciais(): ModeloMensagem[] {
+  return [
+    { id: 'm1', etapa_id: 'e1', titulo: 'Primeiro contato', texto: 'Olá, {primeiro_nome}! Aqui é {vendedor}, da {empresa}. Vi seu interesse e queria entender melhor o que você procura. Podemos conversar hoje?', ordem: 1 },
+    { id: 'm2', etapa_id: 'e3', titulo: 'Retorno da proposta', texto: 'Oi, {primeiro_nome}! Conseguiu ver a proposta que enviei? Fico à disposição para ajustar o que precisar.', ordem: 2 },
+    { id: 'm3', etapa_id: null, titulo: 'Agradecimento', texto: 'Obrigado pelo retorno, {primeiro_nome}! Qualquer dúvida, é só chamar.', ordem: 3 },
+  ];
+}
+
+function atividadesIniciais(): Record<string, Atividade[]> {
+  return {
+    l2: [
+      { id: 'a1', lead_id: 'l2', tipo: 'etapa', descricao: 'Aguardando contato → Em atendimento', created_at: dias(-2), usuario_id: 'demo-bia' },
+      { id: 'a2', lead_id: 'l2', tipo: 'whatsapp', descricao: 'Mensagem: Primeiro contato', created_at: dias(-3), usuario_id: 'demo-bia' },
+    ],
+  };
 }
 
 function tarefasIniciais(): Tarefa[] {
@@ -108,7 +136,9 @@ export function useDemoPainel() {
   });
   const [imagens, setImagens] = useState<{ logo: string | null; fundo: string | null }>({ logo: null, fundo: null });
   const [etapas, setEtapas] = useState<Etapa[]>(ETAPAS);
-  const [todosLeads, setLeads] = useState<Lead[]>(leadsIniciais);
+  const [todosLeads, setLeads] = useState<Lead[]>(() => [...leadsIniciais(), ...leadsPerdidos()]);
+  const [modelos, setModelos] = useState<ModeloMensagem[]>(modelosIniciais);
+  const atividades = useRef<Record<string, Atividade[]>>(atividadesIniciais());
   const [equipe, setEquipe] = useState<Membro[]>(EQUIPE);
   const [todasTarefas, setTarefasEstado] = useState<Tarefa[]>(tarefasIniciais);
   // Espelho síncrono: a ficha relê as tarefas no mesmo clique em que cria uma
@@ -132,49 +162,112 @@ export function useDemoPainel() {
 
   const sair = useCallback(async () => { router.push('/'); }, [router]);
 
-  const criarLead = useCallback(async (d: { nome: string; email: string; telefone: string; origem: string; vendedor_id: string; valor: string }) => {
+  const registrar = useCallback((leadId: string, tipo: TipoAtividade, descricao?: string) => {
+    const agora = new Date().toISOString();
+    atividades.current = { ...atividades.current, [leadId]: [{ id: novoId('a'), lead_id: leadId, tipo, descricao: descricao ?? null, created_at: agora, usuario_id: userId }, ...(atividades.current[leadId] ?? [])] };
+    setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, ultima_atividade_em: agora } : l)));
+  }, [userId]);
+
+  const agendar = useCallback(async (leadId: string, descricao: string, quando: Date) => {
+    setTarefas((prev) => [...prev, { id: novoId('t'), lead_id: leadId, descricao, data_vencimento: quando.toISOString(), concluida: false }].sort((a, b) => a.data_vencimento.localeCompare(b.data_vencimento)));
+    toast.success(`Agendado: ${descricao.toLowerCase()} em ${quando.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })}`);
+  }, [setTarefas]);
+
+  const criarLead = useCallback(async (d: { nome: string; email: string; telefone: string; origem: string; vendedor_id: string; valor: string; documento?: string }) => {
     await espera();
     const resp = papel === 'vendedor' ? userId : d.vendedor_id || null;
     setLeads((prev) => [{
       id: novoId('l'), empresa_id: EMPRESA_ID, nome: d.nome, email: d.email || null, telefone: d.telefone || null,
       origem: d.origem, etapa_id: etapas[0]?.id, valor: parseFloat(d.valor) || 0, vendedor_id: resp,
       vendedor: resp ? { nome: nomeDe(resp) } : null, created_at: new Date().toISOString(),
+      documento: d.documento?.trim() || null, situacao: 'aberto', etapa_desde: new Date().toISOString(), ultima_atividade_em: new Date().toISOString(),
     }, ...prev]);
     toast.success(`${d.nome} entrou no funil`);
     return true;
   }, [papel, userId, etapas]);
 
-  const moverLeadSemAviso = useCallback(async (id: string, etapaId: string) => {
-    setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, etapa_id: etapaId } : l)));
+  const gravarLead = useCallback((id: string, patch: Partial<Lead>) => {
+    const agora = new Date().toISOString();
+    setLeads((prev) => prev.map((l) => {
+      if (l.id !== id) return l;
+      const novo: Lead = { ...l, ...patch, ultima_atividade_em: agora };
+      if (patch.etapa_id && patch.etapa_id !== l.etapa_id) novo.etapa_desde = agora;
+      if (patch.situacao && patch.situacao !== l.situacao) { novo.fechado_em = patch.situacao === 'aberto' ? null : agora; if (patch.situacao === 'aberto') novo.motivo_perda = null; }
+      return novo;
+    }));
   }, []);
 
   const moverLead = useCallback(async (id: string, etapaId: string) => {
     const anterior = todosLeads.find((l) => l.id === id);
     if (!anterior || anterior.etapa_id === etapaId) return;
-    void moverLeadSemAviso(id, etapaId);
-    toast(`${anterior.nome} → ${etapas.find((e) => e.id === etapaId)?.nome}`, {
-      action: { label: 'Desfazer', onClick: () => void moverLeadSemAviso(id, anterior.etapa_id ?? '') },
+    const final = etapaFinal(etapas);
+    const de = etapas.find((e) => e.id === anterior.etapa_id)?.nome ?? 'sem etapa';
+    const para = etapas.find((e) => e.id === etapaId)?.nome ?? '';
+    const patch: Partial<Lead> = { etapa_id: etapaId };
+    if (etapaId === final?.id) patch.situacao = 'ganho';
+    else if (anterior.situacao === 'ganho') patch.situacao = 'aberto';
+    gravarLead(id, patch);
+    registrar(id, patch.situacao === 'ganho' ? 'ganho' : 'etapa', `${de} → ${para}`);
+    const depois = { ...anterior, ...patch };
+    avisarComProximoPasso({
+      titulo: patch.situacao === 'ganho' ? `${anterior.nome}: venda concluída` : `${anterior.nome} → ${para}`,
+      sugerir: emAberto(depois, etapas) && !proximaTarefa(depois, tarefasRef.current),
+      agendar: (descricao, quando) => agendar(id, descricao, quando),
+      desfazer: () => gravarLead(id, { etapa_id: anterior.etapa_id, situacao: anterior.situacao ?? 'aberto' }),
     });
-  }, [todosLeads, etapas, moverLeadSemAviso]);
+  }, [todosLeads, etapas, gravarLead, registrar, agendar]);
 
-  const importarCSV = useCallback(async (arquivo: File) => {
-    try {
-      const novos = lerLeadsCSV(await arquivo.text());
-      setLeads((prev) => [
-        ...novos.map((l) => ({ ...l, id: novoId('l'), empresa_id: EMPRESA_ID, etapa_id: etapas[0]?.id, vendedor_id: papel === 'vendedor' ? userId : null, created_at: new Date().toISOString() })),
-        ...prev,
-      ]);
-      toast.success(`${novos.length} ${novos.length === 1 ? 'lead importado' : 'leads importados'}`, { description: 'Na demonstração, ficam só até recarregar a página.' });
-      return true;
-    } catch (e) {
-      toast.error('Não foi possível importar', { description: e instanceof Error ? e.message : undefined });
-      return false;
-    }
+  const fecharLead = useCallback(async (id: string, resultado: 'ganho' | 'perdido', motivo?: string) => {
+    const anterior = todosLeads.find((l) => l.id === id);
+    if (!anterior) return false;
+    gravarLead(id, resultado === 'ganho'
+      ? { situacao: 'ganho', etapa_id: etapaFinal(etapas)?.id ?? anterior.etapa_id }
+      : { situacao: 'perdido', motivo_perda: motivo?.trim() || null });
+    registrar(id, resultado, resultado === 'perdido' ? motivo : undefined);
+    toast(resultado === 'ganho' ? `${anterior.nome}: venda concluída` : `${anterior.nome} marcado como perdido`, {
+      action: { label: 'Desfazer', onClick: () => gravarLead(id, { situacao: anterior.situacao ?? 'aberto', etapa_id: anterior.etapa_id, motivo_perda: anterior.motivo_perda ?? null }) },
+    });
+    return true;
+  }, [todosLeads, etapas, gravarLead, registrar]);
+
+  const reabrirLead = useCallback(async (id: string) => {
+    const anterior = todosLeads.find((l) => l.id === id);
+    if (!anterior) return;
+    const ordenadas = [...etapas].sort((a, b) => a.ordem - b.ordem);
+    const patch: Partial<Lead> = { situacao: 'aberto' };
+    if (anterior.etapa_id === ordenadas[ordenadas.length - 1]?.id && ordenadas.length > 1) patch.etapa_id = ordenadas[ordenadas.length - 2].id;
+    gravarLead(id, patch);
+    registrar(id, 'reaberto');
+    toast.success(`${anterior.nome} voltou para a negociação`);
+  }, [todosLeads, etapas, gravarLead, registrar]);
+
+  const salvarProbabilidadeLead = useCallback(async (id: string, probabilidade: number | null) => {
+    gravarLead(id, { probabilidade });
+    toast.success(probabilidade == null ? 'Chance volta a seguir a etapa' : `Chance de fechar: ${probabilidade}%`);
+  }, [gravarLead]);
+
+  const registrarWhatsApp = useCallback((id: string, modelo?: string) => {
+    registrar(id, 'whatsapp', modelo ? `Mensagem: ${modelo}` : 'Conversa aberta');
+  }, [registrar]);
+
+  const importarLeads = useCallback(async (linhas: LinhaImportacao[]) => {
+    if (linhas.length === 0) return false;
+    const agora = new Date().toISOString();
+    const novos: Lead[] = linhas.map((l) => ({ ...l, id: novoId('l'), empresa_id: EMPRESA_ID, etapa_id: etapas[0]?.id, vendedor_id: papel === 'vendedor' ? userId : null, created_at: agora, situacao: 'aberto', etapa_desde: agora, ultima_atividade_em: agora }));
+    const ids = novos.map((n) => n.id);
+    setLeads((prev) => [...novos, ...prev]);
+    toast.success(`${novos.length} ${novos.length === 1 ? 'lead importado' : 'leads importados'}`, {
+      description: 'Na demonstração, ficam só até recarregar a página.',
+      duration: 12000,
+      action: { label: 'Desfazer', onClick: () => { setLeads((prev) => prev.filter((l) => !ids.includes(l.id))); toast.success('Importação desfeita'); } },
+    });
+    return true;
   }, [etapas, papel, userId]);
 
   const carregarFicha = useCallback(async (leadId: string) => ({
     anotacoes: anotacoes.current[leadId] ?? [],
     tarefas: tarefasRef.current.filter((t) => t.lead_id === leadId).sort((a, b) => a.data_vencimento.localeCompare(b.data_vencimento)),
+    atividades: atividades.current[leadId] ?? [],
   }), []);
 
   const adicionarAnotacao = useCallback(async (leadId: string, texto: string) => {
@@ -192,7 +285,24 @@ export function useDemoPainel() {
   }, [setTarefas]);
 
   const alternarTarefa = useCallback(async (id: string, concluida: boolean) => {
+    const tarefa = tarefasRef.current.find((t) => t.id === id);
     setTarefas((prev) => prev.map((t) => (t.id === id ? { ...t, concluida: !concluida } : t)));
+    const lead = tarefa && todosLeads.find((l) => l.id === tarefa.lead_id);
+    if (!concluida && lead && emAberto(lead, etapas)) {
+      avisarComProximoPasso({
+        titulo: `Follow-up concluído: ${lead.nome}`,
+        sugerir: !proximaTarefa(lead, tarefasRef.current),
+        agendar: (descricao, quando) => agendar(lead.id, descricao, quando),
+        desfazer: () => setTarefas((prev) => prev.map((t) => (t.id === id ? { ...t, concluida: false } : t))),
+      });
+    }
+  }, [setTarefas, todosLeads, etapas, agendar]);
+
+  const reagendarTarefas = useCallback(async (ids: string[], d: number) => {
+    if (ids.length === 0) return;
+    const quando = emDias(d).toISOString();
+    setTarefas((prev) => prev.map((t) => (ids.includes(t.id) ? { ...t, data_vencimento: quando } : t)).sort((a, b) => a.data_vencimento.localeCompare(b.data_vencimento)));
+    toast.success(`${ids.length} ${ids.length === 1 ? 'follow-up reagendado' : 'follow-ups reagendados'} para ${new Date(quando).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'short' })}`);
   }, [setTarefas]);
 
   const apagarTarefa = useCallback(async (id: string) => {
@@ -223,8 +333,26 @@ export function useDemoPainel() {
     toast.success(tipo === 'logo' ? 'Logo removido' : 'Voltamos ao fundo padrão');
   }, []);
 
+  const salvarEtapa = useCallback(async (id: string, patch: Partial<Pick<Etapa, 'probabilidade' | 'dias_parado' | 'nome'>>) => {
+    setEtapas((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+    return true;
+  }, []);
+
+  const salvarModelo = useCallback(async (m: { id?: string; etapa_id: string | null; titulo: string; texto: string }) => {
+    await espera();
+    const corpo = { etapa_id: m.etapa_id, titulo: m.titulo.trim(), texto: m.texto.trim() };
+    setModelos((prev) => (m.id ? prev.map((x) => (x.id === m.id ? { ...x, ...corpo } : x)) : [...prev, { id: novoId('m'), ordem: prev.length + 1, ...corpo }]));
+    toast.success(m.id ? 'Mensagem atualizada' : 'Mensagem criada');
+    return true;
+  }, []);
+
+  const apagarModelo = useCallback(async (id: string) => {
+    setModelos((prev) => prev.filter((m) => m.id !== id));
+    toast.success('Mensagem apagada');
+  }, []);
+
   const adicionarEtapa = useCallback(async (nome: string, cor: string) => {
-    setEtapas((prev) => [...prev, { id: novoId('e'), empresa_id: EMPRESA_ID, nome, cor, ordem: prev.length + 1 }]);
+    setEtapas((prev) => [...prev, { id: novoId('e'), empresa_id: EMPRESA_ID, nome, cor, ordem: prev.length + 1, probabilidade: null, dias_parado: 7 }]);
     toast.success(`Etapa “${nome}” criada`);
   }, []);
 
@@ -274,11 +402,13 @@ export function useDemoPainel() {
     leads,
     equipe,
     tarefas,
+    modelos,
     nomeUsuario: equipe.find((m) => m.id === userId)?.nome || nomeDe(userId) || 'Você',
     recarregar: async () => {},
     sair,
-    criarLead, moverLead, importarCSV,
-    carregarFicha, adicionarAnotacao, apagarAnotacao, criarTarefa, alternarTarefa, apagarTarefa,
+    criarLead, moverLead, fecharLead, reabrirLead, salvarProbabilidadeLead, registrarWhatsApp, importarLeads, agendar,
+    carregarFicha, adicionarAnotacao, apagarAnotacao, criarTarefa, alternarTarefa, apagarTarefa, reagendarTarefas,
+    salvarEtapa, salvarModelo, apagarModelo,
     salvarMarca, enviarMarca, removerMarca, adicionarEtapa, removerEtapa, convidar, mudarPapel, removerMembro, salvarNome,
   };
 

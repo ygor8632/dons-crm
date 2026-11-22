@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Check, MessageCircle, Trash2 } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, FileUp, Globe, Mail, MessageCircle, Percent, Phone, RotateCcw, Sparkles, StickyNote, Trash2, Trophy, XCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,22 +10,27 @@ import { Segmented } from '@/components/glass';
 import { formatarMoeda } from '@/lib/marca';
 import { cn } from '@/lib/utils';
 import type { Painel } from '../_lib/use-painel';
-import type { Anotacao, Lead, Tarefa } from '../_lib/tipos';
-import { abrirWhatsApp, formatarDataHora, grupoTarefa } from '../_lib/util';
+import type { Anotacao, Atividade, Lead, Tarefa, TipoAtividade } from '../_lib/tipos';
+import { acharDuplicados, formatarDataHora, grupoTarefa } from '../_lib/util';
+import { BotaoWhatsApp, pedirMotivoPerda, SeloSituacao, SinaisLead } from './acoes-lead';
 
 type Aberto = { aberto: boolean; aoMudar: (v: boolean) => void };
 
-const VAZIO = { nome: '', email: '', telefone: '', origem: 'Adicionado manualmente', vendedor_id: '', valor: '' };
+const VAZIO = { nome: '', email: '', telefone: '', origem: 'Adicionado manualmente', vendedor_id: '', valor: '', documento: '' };
+const ORIGENS = ['Adicionado manualmente', 'WhatsApp', 'Instagram', 'Indicação', 'Site', 'Google'];
 
-export function NovoLeadDialog({ crm, aberto, aoMudar }: { crm: Painel } & Aberto) {
+/** Cadastro rápido: nome, WhatsApp e origem; o resto fica em "Mais detalhes". */
+export function NovoLeadDialog({ crm, aberto, aoMudar, abrirLead }: { crm: Painel; abrirLead?: (l: Lead) => void } & Aberto) {
   const [dados, setDados] = useState(VAZIO);
   const [salvando, setSalvando] = useState(false);
+  const [mais, setMais] = useState(false);
   const campo = (k: keyof typeof VAZIO) => ({ value: dados[k], onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setDados({ ...dados, [k]: e.target.value }) });
+  const duplicados = acharDuplicados(crm.leads, dados);
 
   const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
     setSalvando(true);
-    if (await crm.criarLead(dados)) { setDados(VAZIO); aoMudar(false); }
+    if (await crm.criarLead(dados)) { setDados(VAZIO); setMais(false); aoMudar(false); }
     setSalvando(false);
   };
 
@@ -34,25 +39,55 @@ export function NovoLeadDialog({ crm, aberto, aoMudar }: { crm: Painel } & Abert
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Novo lead</DialogTitle>
-          <DialogDescription>Entra na primeira etapa do funil{crm.etapas[0] ? ` (${crm.etapas[0].nome})` : ''}.</DialogDescription>
+          <DialogDescription>Entra na primeira etapa do funil{crm.etapas[0] ? ` (${crm.etapas[0].nome})` : ''}. Só o nome é obrigatório.</DialogDescription>
         </DialogHeader>
         <form onSubmit={enviar} className="space-y-4">
-          <div className="space-y-2"><Label htmlFor="nl-nome">Nome *</Label><Input id="nl-nome" required {...campo('nome')} /></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2"><Label htmlFor="nl-tel">Telefone</Label><Input id="nl-tel" inputMode="tel" {...campo('telefone')} /></div>
-            <div className="space-y-2"><Label htmlFor="nl-email">E-mail</Label><Input id="nl-email" type="email" {...campo('email')} /></div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2"><Label htmlFor="nl-origem">Origem</Label><Input id="nl-origem" {...campo('origem')} /></div>
-            <div className="space-y-2"><Label htmlFor="nl-valor">Valor (R$)</Label><Input id="nl-valor" type="number" step="0.01" min="0" inputMode="decimal" {...campo('valor')} /></div>
-          </div>
-          {crm.papel === 'admin' && crm.equipe.length > 1 && (
+          <div className="space-y-2"><Label htmlFor="nl-nome">Nome *</Label><Input id="nl-nome" required autoFocus autoComplete="off" {...campo('nome')} /></div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-2"><Label htmlFor="nl-tel">WhatsApp</Label><Input id="nl-tel" inputMode="tel" placeholder="(11) 99999-0000" autoComplete="off" {...campo('telefone')} /></div>
             <div className="space-y-2">
-              <Label htmlFor="nl-resp">Responsável</Label>
-              <select id="nl-resp" {...campo('vendedor_id')} className="h-10 w-full appearance-none rounded-xl border border-input bg-pill-active/55 px-3 text-[13px] dark:bg-white/6">
-                <option value="">Sem responsável</option>
-                {crm.equipe.map((m) => <option key={m.id} value={m.id}>{m.nome || m.email}</option>)}
-              </select>
+              <Label htmlFor="nl-origem">Origem</Label>
+              <Input id="nl-origem" list="nl-origens" {...campo('origem')} />
+              <datalist id="nl-origens">{ORIGENS.map((o) => <option key={o} value={o} />)}</datalist>
+            </div>
+          </div>
+
+          {duplicados.length > 0 && (
+            <div role="status" className="rounded-2xl bg-amber-500/12 p-3 text-[13px] text-amber-900 dark:text-amber-100">
+              <p className="font-medium">Parece que já existe:</p>
+              <ul className="mt-1 space-y-1">
+                {duplicados.slice(0, 3).map((l) => (
+                  <li key={l.id} className="flex items-center justify-between gap-2">
+                    <span className="min-w-0 truncate">{l.nome} · {crm.etapas.find((e) => e.id === l.etapa_id)?.nome ?? 'sem etapa'}{l.situacao === 'perdido' ? ' (perdido)' : ''}</span>
+                    {abrirLead && <Button type="button" size="xs" variant="outline" onClick={() => { aoMudar(false); abrirLead(l); }}>Abrir ficha</Button>}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1 text-xs opacity-80">Você ainda pode salvar se for outra pessoa.</p>
+            </div>
+          )}
+
+          <button type="button" onClick={() => setMais((v) => !v)} aria-expanded={mais} className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
+            <ChevronDown className={cn('size-3.5 transition-transform duration-150', mais && 'rotate-180')} aria-hidden /> Mais detalhes (e-mail, valor, CPF/CNPJ{crm.papel === 'admin' && crm.equipe.length > 1 ? ', responsável' : ''})
+          </button>
+          {mais && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-2"><Label htmlFor="nl-email">E-mail</Label><Input id="nl-email" type="email" {...campo('email')} /></div>
+                <div className="space-y-2"><Label htmlFor="nl-valor">Valor (R$)</Label><Input id="nl-valor" type="number" step="0.01" min="0" inputMode="decimal" {...campo('valor')} /></div>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-2"><Label htmlFor="nl-doc">CPF ou CNPJ</Label><Input id="nl-doc" inputMode="numeric" {...campo('documento')} /></div>
+                {crm.papel === 'admin' && crm.equipe.length > 1 && (
+                  <div className="space-y-2">
+                    <Label htmlFor="nl-resp">Responsável</Label>
+                    <select id="nl-resp" {...campo('vendedor_id')} className="h-10 w-full appearance-none rounded-xl border border-input bg-pill-active/55 px-3 text-[13px] dark:bg-white/6">
+                      <option value="">Sem responsável</option>
+                      {crm.equipe.map((m) => <option key={m.id} value={m.id}>{m.nome || m.email}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
             </div>
           )}
           <DialogFooter className="pt-2">
@@ -95,8 +130,9 @@ export function ConvidarDialog({ crm, aberto, aoMudar }: { crm: Painel } & Abert
 
 /** Ficha do lead: contato, etapa, anotações e follow-ups. */
 export function FichaLeadDialog({ crm, lead, aoFechar }: { crm: Painel; lead: Lead | null; aoFechar: () => void }) {
-  const [aba, setAba] = useState<'anotacoes' | 'tarefas'>('anotacoes');
+  const [aba, setAba] = useState<'anotacoes' | 'tarefas' | 'historico'>('anotacoes');
   const [anotacoes, setAnotacoes] = useState<Anotacao[]>([]);
+  const [atividades, setAtividades] = useState<Atividade[]>([]);
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [texto, setTexto] = useState('');
   const [desc, setDesc] = useState('');
@@ -107,17 +143,19 @@ export function FichaLeadDialog({ crm, lead, aoFechar }: { crm: Painel; lead: Le
   // Trocou de lead: zera a ficha no próprio render (padrão recomendado pelo React)
   if ((lead?.id ?? null) !== leadAnterior) {
     setLeadAnterior(lead?.id ?? null);
-    setAba('anotacoes'); setTexto(''); setDesc(''); setData(''); setAnotacoes([]); setTarefas([]);
+    setAba('anotacoes'); setTexto(''); setDesc(''); setData(''); setAnotacoes([]); setTarefas([]); setAtividades([]);
   }
 
   // Lead "vivo" (etapa atualizada pelo Kanban/lista)
   const atual = lead ? crm.leads.find((l) => l.id === lead.id) ?? lead : null;
+  const fechado = !!atual && (atual.situacao ?? 'aberto') !== 'aberto';
 
   const recarregar = useCallback(async () => {
     if (!lead) return;
     const r = await crm.carregarFicha(lead.id);
     setAnotacoes(r.anotacoes);
     setTarefas(r.tarefas);
+    setAtividades(r.atividades);
   }, [lead, crm]);
 
   useEffect(() => {
@@ -126,6 +164,14 @@ export function FichaLeadDialog({ crm, lead, aoFechar }: { crm: Painel; lead: Le
     if (lead) void recarregar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lead?.id]);
+
+  // Mudou etapa/situação ou registrou atividade: atualiza o histórico se estiver aberto
+  const marcaAtividade = atual ? `${atual.etapa_id}|${atual.situacao}|${atual.ultima_atividade_em}` : '';
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (lead && aba === 'historico') void recarregar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [marcaAtividade, aba]);
 
   const confirmarApagar = async (id: string, fn: (id: string) => Promise<void>) => {
     if (apagando !== id) { setApagando(id); setTimeout(() => setApagando((a) => (a === id ? null : a)), 2500); return; }
@@ -143,37 +189,65 @@ export function FichaLeadDialog({ crm, lead, aoFechar }: { crm: Painel; lead: Le
               <DialogHeader className="pr-8">
                 <DialogTitle className="text-xl">{atual.nome}</DialogTitle>
                 <DialogDescription>
-                  {[atual.telefone, atual.email].filter(Boolean).join(' · ') || 'Sem contato'}
+                  {[atual.telefone, atual.email, atual.documento].filter(Boolean).join(' · ') || 'Sem contato'}
                   {(atual.valor ?? 0) > 0 && <> · <span className="tabular font-semibold text-foreground">{formatarMoeda(atual.valor || 0)}</span></>}
                 </DialogDescription>
               </DialogHeader>
+              {fechado && (
+                <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-pill-active/45 p-2.5 pl-3 dark:bg-white/5">
+                  <SeloSituacao lead={atual} />
+                  {atual.fechado_em && <span className="text-xs text-muted-foreground">em {formatarDataHora(atual.fechado_em)}</span>}
+                  <Button size="xs" variant="outline" className="ml-auto" onClick={() => void crm.reabrirLead(atual.id)}><RotateCcw /> Reabrir</Button>
+                </div>
+              )}
               <div className="flex flex-wrap items-center gap-2">
                 <label className="relative inline-flex items-center">
                   <span className="sr-only">Etapa</span>
                   <span className="pointer-events-none absolute left-3 size-2 rounded-full" style={{ backgroundColor: crm.etapas.find((e) => e.id === atual.etapa_id)?.cor }} aria-hidden />
                   <select
                     value={atual.etapa_id ?? ''}
+                    disabled={atual.situacao === 'perdido'}
                     onChange={(e) => void crm.moverLead(atual.id, e.target.value)}
-                    className="h-8 appearance-none rounded-full border border-glass-border bg-pill-active/60 pr-3 pl-7 text-xs font-medium dark:bg-white/8"
+                    className="h-8 appearance-none rounded-full border border-glass-border bg-pill-active/60 pr-3 pl-7 text-xs font-medium disabled:opacity-60 dark:bg-white/8"
                   >
                     {crm.etapas.map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
                   </select>
                 </label>
-                {atual.telefone && (
-                  <Button size="sm" variant="outline" onClick={() => abrirWhatsApp(atual.telefone)}><MessageCircle /> WhatsApp</Button>
+                {!fechado && (
+                  <label className="relative inline-flex items-center" title="Chance de fechar este negócio. Por padrão segue a etapa.">
+                    <span className="sr-only">Chance de fechar</span>
+                    <Percent className="pointer-events-none absolute left-2.5 size-3 text-muted-foreground" aria-hidden />
+                    <select
+                      value={atual.probabilidade ?? ''}
+                      onChange={(e) => void crm.salvarProbabilidadeLead(atual.id, e.target.value === '' ? null : Number(e.target.value))}
+                      className="h-8 appearance-none rounded-full border border-glass-border bg-pill-active/60 pr-3 pl-7 text-xs font-medium dark:bg-white/8"
+                    >
+                      <option value="">Chance da etapa ({crm.etapas.find((e) => e.id === atual.etapa_id)?.probabilidade ?? 0}%)</option>
+                      {[10, 25, 50, 75, 90].map((n) => <option key={n} value={n}>Chance {n}%</option>)}
+                    </select>
+                  </label>
                 )}
-                <Segmented
-                  className="ml-auto"
-                  rotulo="Seções da ficha"
-                  valor={aba}
-                  aoMudar={setAba}
-                  opcoes={[{ id: 'anotacoes', label: 'Anotações' }, { id: 'tarefas', label: 'Follow-ups' }]}
-                />
+                <BotaoWhatsApp crm={crm} lead={atual} variante="botao" />
+                {!fechado && (
+                  <>
+                    <Button size="sm" variant="outline" onClick={() => void crm.fecharLead(atual.id, 'ganho')}><Trophy className="text-positive-foreground" /> Ganho</Button>
+                    <Button size="sm" variant="outline" onClick={() => pedirMotivoPerda(atual)}><XCircle className="text-destructive" /> Perdido</Button>
+                  </>
+                )}
               </div>
+              {!fechado && <SinaisLead crm={crm} lead={atual} />}
+              <Segmented
+                rotulo="Seções da ficha"
+                valor={aba}
+                aoMudar={setAba}
+                opcoes={[{ id: 'anotacoes', label: 'Anotações' }, { id: 'tarefas', label: 'Follow-ups' }, { id: 'historico', label: 'Histórico' }]}
+              />
             </div>
 
             <div className="flex-1 space-y-4 overflow-y-auto p-6">
-              {aba === 'anotacoes' ? (
+              {aba === 'historico' ? (
+                <Historico crm={crm} lead={atual} atividades={atividades} anotacoes={anotacoes} tarefas={tarefas} />
+              ) : aba === 'anotacoes' ? (
                 <>
                   <form
                     onSubmit={async (e) => { e.preventDefault(); if (!texto.trim()) return; await crm.adicionarAnotacao(atual.id, texto.trim()); setTexto(''); void recarregar(); }}
@@ -241,5 +315,45 @@ export function FichaLeadDialog({ crm, lead, aoFechar }: { crm: Painel; lead: Le
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+const ICONE_ATIVIDADE: Record<TipoAtividade | 'anotacao' | 'tarefa' | 'criado', typeof MessageCircle> = {
+  whatsapp: MessageCircle, ligacao: Phone, email: Mail, etapa: ArrowRight, ganho: Trophy, perdido: XCircle,
+  reaberto: RotateCcw, webhook: Globe, importacao: FileUp, anotacao: StickyNote, tarefa: Check, criado: Sparkles,
+};
+const ROTULO_ATIVIDADE: Record<TipoAtividade, string> = {
+  whatsapp: 'WhatsApp', ligacao: 'Ligação', email: 'E-mail', etapa: 'Mudou de etapa', ganho: 'Venda concluída',
+  perdido: 'Marcado como perdido', reaberto: 'Negociação reaberta', webhook: 'Novo contato pelo site', importacao: 'Importado',
+};
+
+/** Linha do tempo: atividades registradas, anotações, follow-ups concluídos e a criação do lead. */
+function Historico({ crm, lead, atividades, anotacoes, tarefas }: { crm: Painel; lead: Lead; atividades: Atividade[]; anotacoes: Anotacao[]; tarefas: Tarefa[] }) {
+  const quem = (id?: string | null) => (id ? crm.equipe.find((m) => m.id === id)?.nome || crm.equipe.find((m) => m.id === id)?.email : null);
+  const itens = [
+    ...atividades.map((a) => ({ id: a.id, tipo: a.tipo as keyof typeof ICONE_ATIVIDADE, titulo: ROTULO_ATIVIDADE[a.tipo], texto: a.descricao, quando: a.created_at, por: quem(a.usuario_id) })),
+    ...anotacoes.map((n) => ({ id: n.id, tipo: 'anotacao' as const, titulo: 'Anotação', texto: n.texto, quando: n.created_at, por: n.perfis?.nome ?? null })),
+    ...tarefas.filter((t) => t.concluida).map((t) => ({ id: t.id, tipo: 'tarefa' as const, titulo: 'Follow-up concluído', texto: t.descricao, quando: t.data_vencimento, por: null })),
+    { id: 'criado', tipo: 'criado' as const, titulo: 'Lead criado', texto: lead.origem ? `Origem: ${lead.origem}` : null, quando: lead.created_at, por: null },
+  ].sort((a, b) => b.quando.localeCompare(a.quando));
+
+  return (
+    <ol className="relative space-y-3 before:absolute before:top-2 before:bottom-2 before:left-[13px] before:w-px before:bg-border">
+      {itens.map((i) => {
+        const Icone = ICONE_ATIVIDADE[i.tipo] ?? Sparkles;
+        return (
+          <li key={i.id} className="relative flex gap-3">
+            <span className={cn('relative z-10 grid size-7 shrink-0 place-items-center rounded-full bg-background ring-1 ring-border', i.tipo === 'ganho' && 'bg-positive text-positive-foreground ring-0', i.tipo === 'perdido' && 'text-destructive')} aria-hidden>
+              <Icone className="size-3.5" />
+            </span>
+            <div className="min-w-0 flex-1 pt-0.5">
+              <p className="text-[13px] font-medium">{i.titulo}</p>
+              {i.texto && <p className="text-[13px] whitespace-pre-wrap text-muted-foreground">{i.texto}</p>}
+              <p className="mt-0.5 text-xs text-muted-foreground">{formatarDataHora(i.quando)}{i.por ? ` · ${i.por}` : ''}</p>
+            </div>
+          </li>
+        );
+      })}
+    </ol>
   );
 }

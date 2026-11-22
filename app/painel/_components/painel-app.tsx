@@ -12,6 +12,7 @@ import { Leads } from './leads';
 import { Equipe } from './equipe';
 import { Configuracoes, Integracoes } from './configuracoes';
 import { ConvidarDialog, FichaLeadDialog, NovoLeadDialog } from './dialogos';
+import { MotivoPerdaHost } from './acoes-lead';
 
 /** O painel do cliente inteiro, para qualquer fonte de dados (Supabase ou a demonstração). */
 export function PainelApp({ crm, aviso }: { crm: Painel; aviso?: React.ReactNode }) {
@@ -19,12 +20,12 @@ export function PainelApp({ crm, aviso }: { crm: Painel; aviso?: React.ReactNode
 
   const secoes = useMemo<Secao[]>(() => [
     { id: 'visao', label: 'Visão geral', icone: LayoutDashboard, visoes: [{ id: 'resumo', label: 'Resumo' }, { id: 'atividade', label: 'Atividade' }] },
-    { id: 'leads', label: 'Leads', icone: Inbox, visoes: [{ id: 'kanban', label: 'Kanban' }, { id: 'lista', label: 'Lista' }, { id: 'tarefas', label: 'Tarefas' }] },
+    { id: 'leads', label: 'Leads', icone: Inbox, visoes: [{ id: 'hoje', label: 'Hoje' }, { id: 'kanban', label: 'Kanban' }, { id: 'lista', label: 'Lista' }, { id: 'tarefas', label: 'Tarefas' }] },
     { id: 'equipe', label: 'Equipe', icone: Users, visoes: [{ id: 'membros', label: 'Membros' }] },
-    ...(admin ? [{ id: 'integracoes', label: 'Integrações', icone: Plug, visoes: [{ id: 'webhook', label: 'Webhook' }, { id: 'importar', label: 'Importar CSV' }] }] : []),
+    ...(admin ? [{ id: 'integracoes', label: 'Integrações', icone: Plug, visoes: [{ id: 'webhook', label: 'Webhook' }, { id: 'importar', label: 'Importar planilha' }] }] : []),
     {
       id: 'config', label: 'Configurações', icone: Settings,
-      visoes: admin ? [{ id: 'marca', label: 'Marca' }, { id: 'funil', label: 'Funil' }, { id: 'perfil', label: 'Perfil' }] : [{ id: 'perfil', label: 'Perfil' }],
+      visoes: admin ? [{ id: 'marca', label: 'Marca' }, { id: 'funil', label: 'Funil' }, { id: 'mensagens', label: 'Mensagens' }, { id: 'perfil', label: 'Perfil' }] : [{ id: 'perfil', label: 'Perfil' }],
     },
   ], [admin]);
 
@@ -84,7 +85,8 @@ export function PainelApp({ crm, aviso }: { crm: Painel; aviso?: React.ReactNode
       {nav.secao === 'integracoes' && admin && <Integracoes crm={crm} visao={nav.visao} />}
       {nav.secao === 'config' && <Configuracoes crm={crm} visao={nav.visao} />}
 
-      <NovoLeadDialog crm={crm} aberto={novoLead} aoMudar={setNovoLead} />
+      <NovoLeadDialog crm={crm} aberto={novoLead} aoMudar={setNovoLead} abrirLead={abrirLead} />
+      <MotivoPerdaHost crm={crm} />
       <ConvidarDialog crm={crm} aberto={convite} aoMudar={setConvite} />
       <FichaLeadDialog crm={crm} lead={leadAberto} aoFechar={() => setLeadAberto(null)} />
     </AppShell>
