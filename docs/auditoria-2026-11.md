@@ -13,10 +13,10 @@ Estado na data: `tsc` ✅ · `next build` ✅ (com aviso de segurança do Next) 
 - Remover o arquivo do repositório **não basta**: a chave segue no histórico do Git. Ela precisa ser **revogada e substituída**.
 
 Plano de rotação (sem derrubar produção):
-- [ ] Criar uma nova **secret key** (`sb_secret_...`) em Supabase → Project Settings → API Keys.
-- [ ] Colocar a nova chave na variável `SUPABASE_SERVICE_ROLE_KEY` nas variáveis de ambiente da Hostinger e refazer o deploy.
-- [ ] Confirmar que produção funciona (login, painel, webhook de leads, convite).
-- [ ] **Desativar as chaves JWT legadas** (anon + service_role) em Supabase → API Keys → Legacy API Keys. O app já usa a publishable key (`sb_publishable_...`) no navegador, então só a service_role legada cai.
+- [x] Criar uma nova **secret key** (`sb_secret_...`) em Supabase → Project Settings → API Keys.
+- [x] Colocar a nova chave na variável `SUPABASE_SERVICE_ROLE_KEY` nas variáveis de ambiente da Hostinger e refazer o deploy.
+- [x] Confirmar que produção funciona (login, painel, webhook de leads, convite).
+- [x] **Desativar as chaves JWT legadas** (anon + service_role) em Supabase → API Keys → Legacy API Keys. O app já usa a publishable key (`sb_publishable_...`) no navegador, então só a service_role legada cai.
 - [ ] (Opcional) Rotacionar o JWT secret / migrar para JWT signing keys.
 - [x] `.env.production` removido do repositório (branch `claude/hopeful-cori-y3jjdg`). **Atenção:** antes de levar isso para a `main`, garantir que as variáveis estão configuradas no painel da Hostinger, senão o build de produção fica sem elas.
 
@@ -56,7 +56,7 @@ Menores: token do webhook aceito por query string (vaza em logs) · CORS `*` no 
 
 ## 4. Plano por etapas
 
-1. [ ] **Segurança imediata** — itens 1.1, 1.2, 1.3, 1.6, 1.8 + rotação de chaves (seção 0).
+1. [x] **Segurança imediata** — itens 1.1, 1.2, 1.3, 1.6, 1.8 + rotação de chaves (seção 0) + RLS (seção 6).
 2. [ ] **Camada de dados** — clientes server/middleware, rotas protegidas no servidor, Server Actions com Zod, migrations + RLS revisado, tipos gerados, validade do plano.
 3. [ ] **Refatoração do painel** — componentes, zerar lint.
 4. [ ] **Design system** — tokens únicos, dark mode via `.dark`, cor da empresa via CSS var, toasts (sonner), acessibilidade.
@@ -66,3 +66,17 @@ Menores: token do webhook aceito por query string (vaza em logs) · CORS `*` no 
 
 - Já disponíveis: `/security-review`, `/code-review`, `/simplify`, `design:design-system`, `design:design-critique`, `design:accessibility-review`, `design:ux-copy`, `run`, `dataviz`, `init`, `session-start-hook`.
 - Instalar: plugin/conector **Supabase** (ler schema e RLS reais), conector **Hostinger** (deploys, DNS, variáveis), **claude-security** ou **Security Guidance**, **frontend-design**, (opcional) **Sentry**.
+
+## 6. Atualização 22/11/2026 — RLS aplicado
+
+Achado pelo advisor do Supabase: RLS **desligado** em `empresas`, `leads`, `perfis` e `etapas_funil`, com o papel `anon` tendo todos os privilégios. Qualquer visitante com a chave publishable (que vai no JS do site) lia, alterava e apagava os dados de todas as empresas.
+
+- [x] Migration `supabase/migrations/20261122000000_rls_multitenant.sql` aplicada em produção.
+- [x] Ensaio prévio (`supabase/tests/ensaio_rls.sql`): 41/41 testes ok, com rollback forçado.
+- [x] Advisor de segurança: 0 erros. Restam: tabelas legadas `tenants`/`profiles` sem policies (intencional, fechadas) e proteção contra senhas vazadas.
+- [ ] Ativar "Leaked password protection" em Supabase → Authentication → Providers → Email (ou Settings → Auth).
+- [ ] Apagar as tabelas/funções legadas (`tenants`, `profiles`, `get_user_role`, `get_user_tenant_id`, `public.is_superadmin`) depois de confirmar que nada as usa.
+- [ ] Usuário `d5bf9524…` (criado em 09/10) sem perfil: decidir empresa/cargo ou remover.
+- [ ] Hostinger não injeta as variáveis de ambiente no build: o `next.config.mjs` tem fallback para a configuração pública e o cliente admin lê a secret key só em tempo de execução.
+
+Outras correções já em produção: cadastro de empresa (webhook_token uuid gerado pelo banco + e-mail obrigatório), API de convite autenticada e criando o perfil, rotas inseguras removidas, Next.js 16.4.6.
