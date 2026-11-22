@@ -54,4 +54,14 @@ three 0.187 + @types/three, motion 14 (base do Motion Primitives — componentes
 Componentes do **21st.dev** e do **shadcn/ui** são adicionados sob demanda:
 `npx shadcn@latest add <componente ou URL do 21st.dev>`.
 
-Pendentes (nome não encontrado no npm, aguardando link): kinects, microkit UI, kitbiz (ícones 3D).
+## Registros e MCP (configurados no repositório)
+- **microkit** (`@microkit`, microinterações): registro em `components.json` → `https://microkit.co/r/{name}.json`.
+  Primeiro componente pedido: `npx shadcn@latest add @microkit/hold-to-delete-button`.
+- **kitbitz** (ícones 3D): servidor MCP em `.mcp.json` → `https://mcp.kitbitz.art`.
+  Confirmar o caminho do endpoint (pode ser `/mcp` ou `/sse`) na primeira sessão que carregá-lo.
+
+## Hosts que o ambiente dons-crm precisa liberar
+`ui.shadcn.com` (índice de registros do shadcn), `microkit.co`, `mcp.kitbitz.art`
+(além de `github.com`, `codeload.github.com`, `21st.dev`, já liberados).
+
+Pendente (nome não encontrado no npm, aguardando link): kinects.
