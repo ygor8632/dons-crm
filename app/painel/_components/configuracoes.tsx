@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Check, Copy, Download, FileUp, Moon, Plus, Sun } from 'lucide-react';
+import { useId, useRef, useState } from 'react';
+import { Check, Copy, Download, FileUp, ImageUp, Moon, Plus, Sun } from 'lucide-react';
 import { CardTitle, GlassCard, PageHeader, Toggle } from '@/components/glass';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,8 @@ import { Label } from '@/components/ui/label';
 import { HoldToDeleteButton } from '@/components/microkit/hold-to-delete-button';
 import { useTema } from '@/components/theme/theme';
 import { COR_PADRAO, hexValido } from '@/lib/marca';
+import type { TipoImagem } from '@/lib/marca-storage';
+import { cn } from '@/lib/utils';
 import type { Painel } from '../_lib/use-painel';
 
 /* ---------------- Configurações: Marca · Funil · Perfil ---------------- */
@@ -23,19 +25,19 @@ function Marca({ crm }: { crm: Painel }) {
   const emp = crm.empresa;
   const [nome, setNome] = useState(emp?.nome ?? '');
   const [cor, setCor] = useState(emp?.cor_primaria || COR_PADRAO);
-  const [logo, setLogo] = useState(emp?.logo_url ?? '');
   const [salvando, setSalvando] = useState(false);
+  const corValida = hexValido(cor) ? cor : COR_PADRAO;
 
   const salvar = async (e: React.FormEvent) => {
     e.preventDefault();
     setSalvando(true);
-    await crm.salvarMarca({ nome, cor_primaria: hexValido(cor) ? cor : COR_PADRAO, logo_url: logo, cor_fundo_logo: emp?.cor_fundo_logo ?? 'transparent' });
+    await crm.salvarMarca({ nome, cor_primaria: corValida });
     setSalvando(false);
   };
 
   return (
     <div className="space-y-5">
-      <PageHeader titulo="Identidade visual" subtitulo="Nome, logo e a cor que pinta destaques, barras e botões do seu CRM." />
+      <PageHeader titulo="Identidade visual" subtitulo="Nome, cor, logo e imagem de fundo do painel da sua equipe." />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 [&>*]:min-w-0">
         <GlassCard className="lg:col-span-7">
           <form onSubmit={salvar} className="space-y-5">
@@ -44,34 +46,128 @@ function Marca({ crm }: { crm: Painel }) {
               <Input id="marca-nome" value={nome} onChange={(e) => setNome(e.target.value)} required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="marca-logo">Logo (URL da imagem)</Label>
-              <Input id="marca-logo" value={logo} onChange={(e) => setLogo(e.target.value)} placeholder="https://…" />
-              <p className="text-xs text-muted-foreground">Em breve: envio do arquivo e imagem de fundo do painel.</p>
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="marca-cor">Cor principal</Label>
               <div className="flex gap-2">
-                <input id="marca-cor" type="color" value={hexValido(cor) ? cor : COR_PADRAO} onChange={(e) => setCor(e.target.value)} className="h-10 w-12 cursor-pointer rounded-xl border border-input bg-transparent p-1" aria-label="Escolher cor" />
+                <input id="marca-cor" type="color" value={corValida} onChange={(e) => setCor(e.target.value)} className="h-10 w-12 shrink-0 cursor-pointer rounded-xl border border-input bg-transparent p-1" aria-label="Escolher cor" />
                 <Input value={cor} onChange={(e) => setCor(e.target.value)} aria-label="Código da cor" aria-invalid={!hexValido(cor)} className="font-mono" />
               </div>
+              <p className="text-xs text-muted-foreground">Pinta destaques, barras, alternâncias e o fundo padrão.</p>
             </div>
-            <Button type="submit" disabled={salvando}>{salvando ? 'Salvando…' : 'Salvar identidade'}</Button>
+            <Button type="submit" disabled={salvando}>{salvando ? 'Salvando…' : 'Salvar nome e cor'}</Button>
           </form>
         </GlassCard>
         <GlassCard className="lg:col-span-5">
           <CardTitle titulo="Prévia" descricao="Como a cor aparece nos destaques" />
-          <div className="mt-5 space-y-4" style={{ ['--brand' as string]: hexValido(cor) ? cor : COR_PADRAO }}>
+          <div className="mt-5 space-y-4" style={{ ['--brand' as string]: corValida }}>
             <div className="flex items-end gap-2" aria-hidden>
               {[40, 64, 52, 78, 60, 92].map((h, i) => (
                 <div key={i} className={i === 5 ? 'hatch flex-1 rounded-lg text-brand' : 'flex-1 rounded-lg bg-foreground/80'} style={{ height: h }} />
               ))}
             </div>
             <div className="h-2 rounded-full bg-chart-muted"><div className="h-full w-2/3 rounded-full bg-brand" /></div>
-            <div className="flex items-center gap-3 text-xs"><Toggle ativo aoMudar={() => {}} rotulo="Exemplo de toggle" /> Alternâncias ativas</div>
+            <div className="flex items-center gap-3 text-xs"><Toggle ativo aoMudar={() => {}} rotulo="Exemplo de alternância" /> Alternâncias ativas</div>
           </div>
         </GlassCard>
+
+        <EnvioImagem
+          className="lg:col-span-5"
+          crm={crm}
+          tipo="logo"
+          titulo="Logo"
+          dica="PNG, JPEG ou WebP. Reduzimos para 512 px e mantemos a transparência."
+          atual={crm.imagens.logo}
+        />
+        <EnvioImagem
+          className="lg:col-span-7"
+          crm={crm}
+          tipo="fundo"
+          titulo="Imagem de fundo"
+          dica="Uma foto ampla e sem texto funciona melhor. Reduzimos para 2400 px; o vidro fica mais opaco sobre ela para manter a leitura."
+          atual={crm.imagens.fundo}
+        />
       </div>
     </div>
+  );
+}
+
+function EnvioImagem({ crm, tipo, titulo, dica, atual, className }: { crm: Painel; tipo: TipoImagem; titulo: string; dica: string; atual: string | null; className?: string }) {
+  const [enviando, setEnviando] = useState(false);
+  const [arrastando, setArrastando] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const id = useId();
+
+  const enviar = async (arquivo?: File | null) => {
+    if (!arquivo || enviando) return;
+    setEnviando(true);
+    await crm.enviarMarca(tipo, arquivo);
+    setEnviando(false);
+    if (inputRef.current) inputRef.current.value = '';
+  };
+
+  return (
+    <GlassCard
+      className={cn('flex flex-col', arrastando && 'shadow-[inset_0_0_0_2px_var(--brand)]', className)}
+      onDragOver={(e) => { e.preventDefault(); setArrastando(true); }}
+      onDragLeave={() => setArrastando(false)}
+      onDrop={(e) => { e.preventDefault(); setArrastando(false); void enviar(e.dataTransfer.files?.[0]); }}
+    >
+      <CardTitle titulo={titulo} descricao={dica} />
+      <div
+        className={cn(
+          'relative mt-4 grid flex-1 place-items-center overflow-hidden rounded-2xl border border-dashed border-border bg-pill-active/35 dark:bg-white/4',
+          tipo === 'logo' ? 'min-h-40' : 'aspect-[16/9] min-h-40',
+        )}
+      >
+        {atual ? (
+          tipo === 'logo' ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={atual} alt={`Logo atual de ${crm.empresa?.nome ?? 'sua empresa'}`} className="max-h-28 max-w-[70%] object-contain" />
+          ) : (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={atual} alt="Imagem de fundo atual" className="absolute inset-0 size-full object-cover" />
+              {/* Amostra de vidro por cima, para julgar a leitura */}
+              <div className="glass relative w-3/5 rounded-2xl p-3 text-left" aria-hidden>
+                <p className="text-[13px] font-semibold">Seu funil hoje</p>
+                <p className="text-[11px] text-muted-foreground">Assim o texto aparece sobre o fundo</p>
+              </div>
+            </>
+          )
+        ) : (
+          <div className="flex flex-col items-center gap-2 px-6 py-8 text-center text-muted-foreground">
+            <ImageUp className="size-6" aria-hidden />
+            <span className="text-xs">{tipo === 'logo' ? 'Sem logo: usamos as iniciais da empresa.' : 'Sem imagem: usamos o gradiente quente com a sua cor.'}</span>
+            <span className="text-xs">Arraste um arquivo para cá.</span>
+          </div>
+        )}
+        {enviando && (
+          <div className="absolute inset-0 grid place-items-center bg-[var(--scrim)] text-[13px] font-medium text-white" role="status">
+            Enviando…
+          </div>
+        )}
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <input
+          ref={inputRef}
+          id={id}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          className="sr-only"
+          onChange={(e) => void enviar(e.target.files?.[0])}
+        />
+        <Button type="button" disabled={enviando} onClick={() => inputRef.current?.click()}>
+          <ImageUp /> {atual ? 'Trocar imagem' : 'Enviar imagem'}
+        </Button>
+        {atual && (
+          <HoldToDeleteButton
+            rotulo="Remover"
+            rotuloFeito="Removida"
+            descricao={tipo === 'logo' ? 'Remover logo' : 'Remover imagem de fundo'}
+            aoConfirmar={() => crm.removerMarca(tipo)}
+          />
+        )}
+      </div>
+    </GlassCard>
   );
 }
 

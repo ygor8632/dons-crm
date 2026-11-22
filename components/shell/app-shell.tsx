@@ -119,7 +119,11 @@ function Avatar({ marca, className }: { marca: AppShellProps['marca']; className
   const fundo = marca.corFundoLogo && marca.corFundoLogo !== 'transparent' ? marca.corFundoLogo : undefined;
   return (
     <span
-      className={cn('grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-brand text-sm font-bold text-brand-foreground shadow-[inset_0_0_0_2px_rgb(255_255_255/0.6)]', className)}
+      className={cn(
+        'grid size-10 shrink-0 place-items-center overflow-hidden rounded-full text-sm font-bold shadow-[inset_0_0_0_1px_var(--glass-border)]',
+        marca.logoUrl ? 'bg-pill-active' : 'bg-brand text-brand-foreground shadow-[inset_0_0_0_2px_rgb(255_255_255/0.6)]',
+        className,
+      )}
       style={fundo && marca.logoUrl ? { backgroundColor: fundo } : undefined}
     >
       {marca.logoUrl ? (

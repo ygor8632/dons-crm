@@ -61,8 +61,8 @@ export default function PainelPage() {
 
   return (
     <AppShell
-      marca={{ nome: crm.empresa?.nome || 'Meu CRM', logoUrl: crm.empresa?.logo_url, corFundoLogo: crm.empresa?.cor_fundo_logo, cor: crm.empresa?.cor_primaria }}
-      fundoUrl={crm.empresa?.fundo_url}
+      marca={{ nome: crm.empresa?.nome || 'Meu CRM', logoUrl: crm.imagens.logo, corFundoLogo: crm.empresa?.cor_fundo_logo, cor: crm.empresa?.cor_primaria }}
+      fundoUrl={crm.imagens.fundo}
       usuario={{ nome: crm.nomeUsuario, papel: admin ? 'Administrador' : 'Vendedor' }}
       secoes={secoes}
       secao={nav.secao}

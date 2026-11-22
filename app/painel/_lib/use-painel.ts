@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { createClient } from '@/utils/supabase/client';
+import { apagarImagem, enviarImagem, resolverImagens, type TipoImagem } from '@/lib/marca-storage';
 import type { Anotacao, Empresa, Etapa, Lead, Membro, Papel, Tarefa } from './tipos';
 
 /**
@@ -23,6 +24,22 @@ export function usePainel() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [equipe, setEquipe] = useState<Membro[]>([]);
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
+  // URLs exibíveis do logo e do fundo (links assinados do bucket privado)
+  const [imagens, setImagens] = useState<{ logo: string | null; fundo: string | null }>({ logo: null, fundo: null });
+  const cacheImagens = useRef(new Map<string, string | null>());
+
+  /** Resolve logo/fundo reaproveitando links já assinados (a imagem não pisca a cada recarga). */
+  const atualizarImagens = useCallback(async (logo?: string | null, fundo?: string | null) => {
+    const faltando = [logo, fundo].filter((v): v is string => !!v && !cacheImagens.current.has(v));
+    if (faltando.length) {
+      const urls = await resolverImagens(supabase, faltando);
+      faltando.forEach((v, i) => cacheImagens.current.set(v, urls[i]));
+    }
+    setImagens({
+      logo: logo ? cacheImagens.current.get(logo) ?? null : null,
+      fundo: fundo ? cacheImagens.current.get(fundo) ?? null : null,
+    });
+  }, [supabase]);
 
   const carregar = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -50,12 +67,13 @@ export function usePainel() {
       return;
     }
     setEmpresa(emp as Empresa);
+    await atualizarImagens(emp?.logo_url, emp?.fundo_url);
     setEtapas((etp as Etapa[]) || []);
     setLeads((lds as Lead[]) || []);
     setEquipe((eqp as Membro[]) || []);
     setTarefas((trf as Tarefa[]) || []);
     setCarregando(false);
-  }, [supabase, router]);
+  }, [supabase, router, atualizarImagens]);
 
   // Busca inicial: os setState acontecem depois dos awaits, não em cascata no render.
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -176,13 +194,47 @@ export function usePainel() {
 
   /* ---------- Configurações ---------- */
 
-  const salvarMarca = useCallback(async (dados: { nome: string; cor_primaria: string; logo_url: string; cor_fundo_logo: string }) => {
+  const salvarMarca = useCallback(async (dados: { nome: string; cor_primaria: string }) => {
     if (!empresa) return;
     const { error } = await supabase.from('empresas').update(dados).eq('id', empresa.id);
     if (error) { toast.error('Não foi possível salvar a identidade visual.'); return; }
     setEmpresa({ ...empresa, ...dados });
     toast.success('Identidade visual atualizada');
   }, [empresa, supabase]);
+
+  /** Envia logo ou fundo para o bucket `marca`, grava o caminho e apaga o arquivo anterior. */
+  const enviarMarca = useCallback(async (tipo: TipoImagem, arquivo: File) => {
+    if (!empresa) return false;
+    const coluna = tipo === 'logo' ? 'logo_url' : 'fundo_url';
+    const anterior = empresa[coluna];
+    try {
+      const caminho = await enviarImagem(supabase, empresa.id, tipo, arquivo);
+      const { error } = await supabase.from('empresas').update({ [coluna]: caminho }).eq('id', empresa.id);
+      if (error) { await apagarImagem(supabase, caminho); throw new Error('Não foi possível salvar na empresa.'); }
+      await apagarImagem(supabase, anterior);
+      const nova = { ...empresa, [coluna]: caminho };
+      setEmpresa(nova);
+      await atualizarImagens(nova.logo_url, nova.fundo_url);
+      toast.success(tipo === 'logo' ? 'Logo atualizado' : 'Imagem de fundo aplicada');
+      return true;
+    } catch (e) {
+      toast.error(tipo === 'logo' ? 'Logo não enviado' : 'Fundo não enviado', { description: e instanceof Error ? e.message : undefined });
+      return false;
+    }
+  }, [empresa, supabase, atualizarImagens]);
+
+  const removerMarca = useCallback(async (tipo: TipoImagem) => {
+    if (!empresa) return;
+    const coluna = tipo === 'logo' ? 'logo_url' : 'fundo_url';
+    const anterior = empresa[coluna];
+    const { error } = await supabase.from('empresas').update({ [coluna]: null }).eq('id', empresa.id);
+    if (error) { toast.error('Não foi possível remover a imagem.'); return; }
+    await apagarImagem(supabase, anterior);
+    const nova = { ...empresa, [coluna]: null };
+    setEmpresa(nova);
+    await atualizarImagens(nova.logo_url, nova.fundo_url);
+    toast.success(tipo === 'logo' ? 'Logo removido' : 'Voltamos ao fundo padrão');
+  }, [empresa, supabase, atualizarImagens]);
 
   const adicionarEtapa = useCallback(async (nome: string, cor: string) => {
     if (!empresa) return;
@@ -245,11 +297,11 @@ export function usePainel() {
   }, [equipe, userId, userEmail]);
 
   return {
-    carregando, userId, userEmail, papel, empresa, etapas, leads, equipe, tarefas, nomeUsuario,
+    carregando, userId, userEmail, papel, empresa, imagens, etapas, leads, equipe, tarefas, nomeUsuario,
     recarregar: carregar, sair,
     criarLead, moverLead, importarCSV,
     carregarFicha, adicionarAnotacao, apagarAnotacao, criarTarefa, alternarTarefa, apagarTarefa,
-    salvarMarca, adicionarEtapa, removerEtapa, convidar, mudarPapel, removerMembro,
+    salvarMarca, enviarMarca, removerMarca, adicionarEtapa, removerEtapa, convidar, mudarPapel, removerMembro,
   };
 }
 

@@ -20,8 +20,21 @@ Gerados com dados fictícios, interceptando o Supabase no navegador (nada tocou 
 - Paleta dos gráficos validada com a skill `dataviz` (modo claro passa; ver pendência do escuro).
 - `cn` com `clsx` + `tailwind-merge`; só a fonte Inter; `lang="pt-BR"`.
 
+## Etapa 2: upload de logo e fundo (22/11/2026)
+- Migration `20261122045640_marca_storage` aplicada em produção: coluna `empresas.fundo_url`, bucket
+  **privado** `marca` (PNG/JPEG/WebP, 5 MB, sem SVG) e policies: membros leem a pasta da própria
+  empresa; só admin da empresa e superadmin gravam/apagam. Ensaio `supabase/tests/ensaio_marca.sql`:
+  18/18 ok, com rollback forçado. Advisor de segurança sem alertas novos.
+- O banco guarda o caminho (`<empresa_id>/fundo-<data>.webp`); o app gera links assinados de 24 h.
+  URLs http(s) antigas de logo continuam funcionando.
+- No navegador a imagem é reduzida (logo 512 px, fundo 2400 px) e convertida para WebP antes do envio;
+  ao trocar ou remover, o arquivo anterior é apagado.
+- Contraste medido nos pixels (texto secundário vs. pior ponto do fundo) com foto escura e clara, nos
+  dois temas: todas as combinações ≥ 4,5:1 depois de engrossar o vidro com imagem (`[data-fundo=imagem]`).
+- Prints: `prints/marca-*.jpg`.
+
 ## Pendente (próximas etapas)
-- Upload de logo e imagem de fundo: coluna `empresas.fundo_url` + bucket `marca/<empresa_id>/` com RLS.
+- Testar o envio real com a conta de admin (os testes daqui usaram Storage simulado no navegador).
 - Paleta categórica do modo escuro: âmbar e coral ficam próximos para daltonismo (há legenda e rótulos,
   mas vale ajustar o tom).
 - Auditoria formal de acessibilidade (`design:accessibility-review`) sobre fundos de cliente.

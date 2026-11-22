@@ -204,13 +204,16 @@
 }
 
 /* Fundo com imagem do cliente: o vidro engrossa para manter o contraste AA */
+/* Valores medidos: texto secundário ≥ 4.5:1 sobre fotos escuras e claras nos dois temas */
 [data-fundo="imagem"] {
-  --glass: rgb(255 255 255 / 0.55);
-  --glass-card: rgb(255 255 255 / 0.55);
+  --muted-foreground: #4f4641;
+  --glass: rgb(250 247 243 / 0.72);
+  --glass-card: rgb(255 255 255 / 0.5);
 }
 .dark[data-fundo="imagem"], .dark [data-fundo="imagem"] {
-  --glass: rgb(24 19 17 / 0.66);
-  --glass-card: rgb(255 255 255 / 0.07);
+  --muted-foreground: #c4bab2;
+  --glass: rgb(24 19 17 / 0.78);
+  --glass-card: rgb(255 255 255 / 0.05);
 }
 
 /* ---------- Superfícies de vidro ---------- */
