@@ -268,6 +268,16 @@ export function usePainel() {
     else { toast.success('Cargo atualizado'); void carregar(); }
   }, [supabase, carregar]);
 
+  /** O próprio usuário define como quer ser chamado (o RLS permite editar o próprio perfil). */
+  const salvarNome = useCallback(async (nome: string) => {
+    if (!userId) return false;
+    const { error } = await supabase.from('perfis').update({ nome }).eq('id', userId);
+    if (error) { toast.error('Não foi possível salvar o nome.'); return false; }
+    setEquipe((prev) => prev.map((m) => (m.id === userId ? { ...m, nome } : m)));
+    toast.success('Nome atualizado');
+    return true;
+  }, [userId, supabase]);
+
   const removerMembro = useCallback(async (membro: Membro) => {
     if (membro.id === userId) { toast.error('Você não pode remover o seu próprio acesso.'); return; }
     const { error } = await supabase.from('perfis').delete().eq('id', membro.id);
@@ -287,7 +297,7 @@ export function usePainel() {
     recarregar: carregar, sair,
     criarLead, moverLead, importarCSV,
     carregarFicha, adicionarAnotacao, apagarAnotacao, criarTarefa, alternarTarefa, apagarTarefa,
-    salvarMarca, enviarMarca, removerMarca, adicionarEtapa, removerEtapa, convidar, mudarPapel, removerMembro,
+    salvarMarca, enviarMarca, removerMarca, adicionarEtapa, removerEtapa, convidar, mudarPapel, removerMembro, salvarNome,
   };
 }
 

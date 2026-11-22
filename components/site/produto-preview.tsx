@@ -25,7 +25,7 @@ export function ProdutoPreview({ className, variante = 'resumo' }: { className?:
       {/* topo */}
       <div className="glass-pill relative flex items-center justify-between px-2 py-1.5">
         <div className="flex items-center gap-2">
-          <span className="grid size-6 place-items-center rounded-full bg-brand text-[9px] font-bold text-brand-foreground">DT</span>
+          <span className="grid size-6 place-items-center rounded-full bg-brand-solid text-[9px] font-bold text-brand-solid-foreground">DT</span>
           <span className="text-[11px] font-semibold">Bom dia, Marina</span>
         </div>
         <span className="hidden h-6 w-1/3 rounded-full bg-pill-active/60 sm:block dark:bg-white/8" />

@@ -36,7 +36,7 @@ export default function LoginPage() {
     <AuthLayout
       titulo="Entrar no Dons CRM"
       subtitulo="Use o e-mail e a senha que você criou a partir do convite."
-      rodape={<>Ainda não é cliente? <Link href="/demo" className="font-medium text-foreground underline underline-offset-4">Ver a demonstração</Link></>}
+      rodape={<>Ainda não é cliente? <Link href="/demo" className="inline-block py-2 font-medium text-foreground underline underline-offset-4">Ver a demonstração</Link></>}
     >
       <form onSubmit={entrar} className="space-y-5" noValidate={false}>
         {erro && <AvisoErro>{erro}</AvisoErro>}
@@ -47,7 +47,7 @@ export default function LoginPage() {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label htmlFor="senha">Senha</Label>
-            <Link href="/esqueci-senha" className="text-xs font-medium text-foreground underline-offset-4 hover:underline">Esqueci a senha</Link>
+            <Link href="/esqueci-senha" className="inline-block py-1.5 text-xs font-medium text-foreground underline-offset-4 hover:underline">Esqueci a senha</Link>
           </div>
           <CampoSenha id="senha" autoComplete="current-password" required value={senha} onChange={(e) => setSenha(e.target.value)} aria-invalid={!!erro} />
         </div>

@@ -9,7 +9,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useTema } from '@/components/theme/theme';
+import { CampoNome } from '@/components/conta/campo-nome';
 import { cn } from '@/lib/utils';
+import { COR_PADRAO, corSolida } from '@/lib/marca';
 import { PLANOS, diasParaVencer, rotuloPlano, type Dashboard, type EmpresaAdmin } from '../_lib/use-dashboard';
 
 type Base = { dash: Dashboard; suspender: (e: EmpresaAdmin) => void; novaEmpresa: () => void };
@@ -63,7 +65,7 @@ export function VisaoGeralAdmin({ dash, suspender, novaEmpresa, irPara }: Base &
           <CardTitle titulo="Novos clientes" descricao="Empresas cadastradas por mês" />
           <div className="mt-4 h-56 min-h-56" role="img" aria-label={`Novos clientes por mês: ${novasPorMes.map((m) => `${m.mes} ${m.n}`).join(', ')}`}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={novasPorMes} margin={{ top: 8, right: 4, left: -28, bottom: 0 }} barCategoryGap="28%">
+              <BarChart accessibilityLayer={false} data={novasPorMes} margin={{ top: 8, right: 4, left: -28, bottom: 0 }} barCategoryGap="28%">
                 <defs>
                   <pattern id="hachura-admin" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
                     <rect width="6" height="6" fill="var(--brand)" opacity="0.55" />
@@ -86,8 +88,8 @@ export function VisaoGeralAdmin({ dash, suspender, novaEmpresa, irPara }: Base &
           <div className="mt-2 flex items-center gap-5">
             <div className="relative size-36 shrink-0">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={porPlano.filter((p) => p.value > 0)} dataKey="value" innerRadius="70%" outerRadius="100%" paddingAngle={3} cornerRadius={6} stroke="none" isAnimationActive={false}>
+                <PieChart accessibilityLayer={false}>
+                  <Pie rootTabIndex={-1} data={porPlano.filter((p) => p.value > 0)} dataKey="value" innerRadius="70%" outerRadius="100%" paddingAngle={3} cornerRadius={6} stroke="none" isAnimationActive={false}>
                     {porPlano.map((p, i) => p.value > 0 && <Cell key={p.name} fill={CORES_PLANO[i]} />)}
                   </Pie>
                   <Tooltip content={<Dica />} />
@@ -110,7 +112,7 @@ export function VisaoGeralAdmin({ dash, suspender, novaEmpresa, irPara }: Base &
 
         <GlassCard className="p-2 sm:p-3 lg:col-span-8">
           <div className="flex items-center justify-between px-3 pt-2 pb-3">
-            <h3 className="text-[15px] font-semibold tracking-[-0.01em]">Clientes recentes</h3>
+            <h2 className="text-[15px] font-semibold tracking-[-0.01em]">Clientes recentes</h2>
             <Button size="xs" variant="outline" onClick={() => irPara('clientes')}>Ver todos</Button>
           </div>
           <TabelaClientes dash={dash} empresas={empresas.slice(0, 4)} suspender={suspender} novaEmpresa={novaEmpresa} compacta />
@@ -137,7 +139,7 @@ export function Clientes({ dash, suspender, novaEmpresa, visao }: Base & { visao
       />
       <div className="relative sm:w-72">
         <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-        <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Filtrar por nome" aria-label="Filtrar clientes" className="h-10 w-full rounded-full border border-glass-border bg-pill-active/55 pr-4 pl-10 text-[13px] outline-none placeholder:text-muted-foreground focus-visible:ring-3 focus-visible:ring-ring/25 dark:bg-white/6" />
+        <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Filtrar por nome" aria-label="Filtrar clientes" className="h-10 w-full rounded-full border border-glass-border bg-pill-active/55 pr-4 pl-10 text-[13px] placeholder:text-muted-foreground dark:bg-white/6" />
       </div>
       <GlassCard className="p-2 sm:p-3">
         <TabelaClientes dash={dash} empresas={lista} suspender={suspender} novaEmpresa={novaEmpresa} />
@@ -161,7 +163,7 @@ function TabelaClientes({ dash, empresas, suspender, novaEmpresa, compacta }: Ba
   }
   const th = 'bg-pill-active/55 px-3 py-2.5 font-medium dark:bg-white/5';
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className="w-full min-w-[720px] text-left text-[13px]">
         <thead>
           <tr className="text-xs text-muted-foreground">
@@ -179,7 +181,7 @@ function TabelaClientes({ dash, empresas, suspender, novaEmpresa, compacta }: Ba
               <tr key={e.id} className="border-b border-border/60 last:border-0">
                 <td className="max-w-[320px] px-3 py-3">
                   <div className="flex items-center gap-3">
-                    <span className="grid size-9 shrink-0 place-items-center rounded-full text-xs font-bold text-white" style={{ backgroundColor: e.cor_primaria || 'var(--brand)' }} aria-hidden>{iniciais(e.nome)}</span>
+                    <span className="grid size-9 shrink-0 place-items-center rounded-full text-xs font-bold" style={{ backgroundColor: corSolida(e.cor_primaria || COR_PADRAO).fundo, color: corSolida(e.cor_primaria || COR_PADRAO).texto }} aria-hidden>{iniciais(e.nome)}</span>
                     <div className="min-w-0">
                       <p className="truncate font-semibold" title={e.nome}>{e.nome}</p>
                       <p className="text-xs text-muted-foreground">{n} {n === 1 ? 'membro' : 'membros'}</p>
@@ -236,11 +238,12 @@ export function ConfigAdmin({ dash }: { dash: Dashboard }) {
   const { escuro, alternar, seguirSistema } = useTema();
   return (
     <div className="space-y-5">
-      <PageHeader titulo="Configurações" subtitulo="Preferências da sua conta de superadmin neste aparelho." />
+      <PageHeader titulo="Configurações" subtitulo="Seu nome, seus dados de acesso e as preferências deste aparelho." />
       <div className="grid max-w-3xl gap-4 md:grid-cols-2">
         <GlassCard>
           <CardTitle titulo="Conta" />
-          <div className="mt-4 space-y-2"><Label htmlFor="adm-email">E-mail</Label><Input id="adm-email" disabled value={dash.email ?? ''} /></div>
+          <div className="mt-4"><CampoNome inicial={dash.nome} aoSalvar={dash.salvarNome} /></div>
+          <div className="mt-5 space-y-2"><Label htmlFor="adm-email">E-mail</Label><Input id="adm-email" disabled value={dash.email ?? ''} /></div>
         </GlassCard>
         <GlassCard>
           <CardTitle titulo="Aparência" />
@@ -278,12 +281,12 @@ export function NovaEmpresaDialog({ dash, aberto, aoMudar }: { dash: Dashboard; 
           <DialogDescription>Cria o ambiente do cliente, o funil inicial e envia o convite ao administrador.</DialogDescription>
         </DialogHeader>
         <form onSubmit={enviar} className="space-y-4">
-          <div className="space-y-2"><Label htmlFor="ne-nome">Nome da empresa *</Label><Input id="ne-nome" required autoFocus value={d.nome} onChange={(e) => setD({ ...d, nome: e.target.value })} /></div>
+          <div className="space-y-2"><Label htmlFor="ne-nome">Nome da empresa *</Label><Input id="ne-nome" required value={d.nome} onChange={(e) => setD({ ...d, nome: e.target.value })} /></div>
           <div className="space-y-2"><Label htmlFor="ne-email">E-mail do administrador *</Label><Input id="ne-email" type="email" required value={d.emailAdmin} onChange={(e) => setD({ ...d, emailAdmin: e.target.value })} placeholder="admin@empresa.com.br" /></div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="ne-plano">Plano</Label>
-              <select id="ne-plano" value={d.plano} onChange={(e) => setD({ ...d, plano: e.target.value })} className="h-10 w-full appearance-none rounded-xl border border-input bg-pill-active/55 px-3 text-[13px] outline-none focus-visible:ring-3 focus-visible:ring-ring/20 dark:bg-white/6">
+              <select id="ne-plano" value={d.plano} onChange={(e) => setD({ ...d, plano: e.target.value })} className="h-10 w-full appearance-none rounded-xl border border-input bg-pill-active/55 px-3 text-[13px] dark:bg-white/6">
                 {PLANOS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
               </select>
             </div>

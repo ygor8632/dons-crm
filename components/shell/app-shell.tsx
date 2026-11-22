@@ -129,7 +129,7 @@ function Avatar({ marca, className }: { marca: AppShellProps['marca']; className
     <span
       className={cn(
         'grid size-10 shrink-0 place-items-center overflow-hidden rounded-full text-sm font-bold shadow-[inset_0_0_0_1px_var(--glass-border)]',
-        marca.logoUrl ? 'bg-pill-active' : 'bg-brand text-brand-foreground shadow-[inset_0_0_0_2px_rgb(255_255_255/0.6)]',
+        marca.logoUrl ? 'bg-pill-active' : 'bg-brand-solid text-brand-solid-foreground shadow-[inset_0_0_0_2px_rgb(255_255_255/0.6)]',
         className,
       )}
       style={fundo && marca.logoUrl ? { backgroundColor: fundo } : undefined}
@@ -259,7 +259,7 @@ function Busca({ itens, placeholder, aoSelecionar, compacta }: AppShellProps['bu
               if (e.key === 'ArrowUp') { e.preventDefault(); setAtivo((a) => Math.max(a - 1, 0)); }
               if (e.key === 'Enter' && resultados[ativo]) { e.preventDefault(); escolher(resultados[ativo].id); }
             }}
-            className="h-10 w-full rounded-full border border-glass-border bg-pill-active/55 pr-12 pl-10 text-[13px] shadow-[inset_0_1px_2px_rgb(40_25_15/0.06)] outline-none placeholder:text-muted-foreground focus:bg-pill-active/85 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/25 dark:bg-white/6 dark:focus:bg-white/10"
+            className="h-10 w-full rounded-full border border-glass-border bg-pill-active/55 pr-12 pl-10 text-[13px] shadow-[inset_0_1px_2px_rgb(40_25_15/0.06)] placeholder:text-muted-foreground focus:bg-pill-active/85 dark:bg-white/6 dark:focus:bg-white/10"
           />
           {compacta ? (
             <button type="button" aria-label="Fechar busca" onClick={fechar} className="absolute top-1/2 right-1.5 grid size-7 -translate-y-1/2 place-items-center rounded-full hover:bg-muted">
@@ -318,7 +318,7 @@ function Notificacoes({ itens, vazio, aoSelecionar }: AppShellProps['notificacoe
       >
         <Bell className="size-[18px]" />
         {itens.length > 0 && (
-          <span className={cn('tabular absolute -top-0.5 -right-0.5 grid h-[18px] min-w-[18px] place-items-center rounded-full px-1 text-[10px] font-bold text-white ring-2 ring-pill-active', urgentes ? 'bg-brand text-brand-foreground' : 'bg-foreground text-background')}>
+          <span className={cn('tabular absolute -top-0.5 -right-0.5 grid h-[18px] min-w-[18px] place-items-center rounded-full px-1 text-[10px] font-bold text-white ring-2 ring-pill-active', urgentes ? 'bg-brand-solid text-brand-solid-foreground' : 'bg-foreground text-background')}>
             {itens.length > 9 ? '9+' : itens.length}
           </span>
         )}

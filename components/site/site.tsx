@@ -5,8 +5,8 @@ import { CONTATO_URL } from '@/lib/contato';
 /** Marca do Dons CRM: o "D" num círculo da cor da marca + o nome. */
 export function Marca({ className }: { className?: string }) {
   return (
-    <Link href="/" className={cn('flex items-center gap-2.5 rounded-full outline-offset-4', className)} aria-label="Dons CRM, página inicial">
-      <span className="grid size-9 place-items-center rounded-full bg-brand text-sm font-bold text-brand-foreground shadow-[inset_0_0_0_2px_rgb(255_255_255/0.55)]" aria-hidden>D</span>
+    <Link href="/" className={cn('flex items-center gap-2.5 rounded-full outline-offset-4', className)}>
+      <span className="grid size-9 place-items-center rounded-full bg-brand-solid text-sm font-bold text-brand-solid-foreground shadow-[inset_0_0_0_2px_rgb(255_255_255/0.55)]" aria-hidden>D</span>
       <span className="text-[15px] font-semibold tracking-[-0.01em]">Dons CRM</span>
     </Link>
   );
@@ -39,9 +39,9 @@ export function SiteRodape() {
     <footer className="mx-auto flex max-w-[1200px] flex-col gap-4 px-6 pt-6 pb-10 text-[13px] text-ink-2 sm:flex-row sm:items-center sm:justify-between">
       <span>© 2026 Dons CRM</span>
       <nav aria-label="Rodapé" className="flex flex-wrap gap-x-5 gap-y-2">
-        <Link href="/demo" className="underline-offset-4 hover:text-foreground hover:underline">Demonstração</Link>
-        <Link href="/login" className="underline-offset-4 hover:text-foreground hover:underline">Área do cliente</Link>
-        {CONTATO_URL && <a href={CONTATO_URL} className="underline-offset-4 hover:text-foreground hover:underline">Falar com um consultor</a>}
+        <Link href="/demo" className="inline-block py-2 underline-offset-4 hover:text-foreground hover:underline">Demonstração</Link>
+        <Link href="/login" className="inline-block py-2 underline-offset-4 hover:text-foreground hover:underline">Área do cliente</Link>
+        {CONTATO_URL && <a href={CONTATO_URL} className="inline-block py-2 underline-offset-4 hover:text-foreground hover:underline">Falar com um consultor</a>}
       </nav>
     </footer>
   );

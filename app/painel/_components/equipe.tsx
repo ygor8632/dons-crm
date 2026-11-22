@@ -42,12 +42,12 @@ export function Equipe({ crm, convidar }: { crm: Painel; convidar: () => void })
                       id={`papel-${m.id}`}
                       value={m.role === 'admin' ? 'admin' : 'vendedor'}
                       onChange={(e) => void crm.mudarPapel(m.id, e.target.value as Papel)}
-                      className="h-8 appearance-none rounded-full border border-glass-border bg-pill-active/60 px-3 text-xs font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/25 dark:bg-white/8"
+                      className="h-8 appearance-none rounded-full border border-glass-border bg-pill-active/60 px-3 text-xs font-medium dark:bg-white/8"
                     >
                       <option value="vendedor">Vendedor</option>
                       <option value="admin">Administrador</option>
                     </select>
-                    <HoldToDeleteButton rotulo="Remover" rotuloFeito="Removido" descricao={`Remover acesso de ${m.email}`} aoConfirmar={() => crm.removerMembro(m)} />
+                    <HoldToDeleteButton rotulo="Remover" rotuloFeito="Removido" descricao={`acesso de ${m.email}`} aoConfirmar={() => crm.removerMembro(m)} />
                   </div>
                 ) : (
                   <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">{m.role === 'admin' ? 'Administrador' : 'Vendedor'}</span>

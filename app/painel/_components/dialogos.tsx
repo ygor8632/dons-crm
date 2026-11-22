@@ -37,7 +37,7 @@ export function NovoLeadDialog({ crm, aberto, aoMudar }: { crm: Painel } & Abert
           <DialogDescription>Entra na primeira etapa do funil{crm.etapas[0] ? ` (${crm.etapas[0].nome})` : ''}.</DialogDescription>
         </DialogHeader>
         <form onSubmit={enviar} className="space-y-4">
-          <div className="space-y-2"><Label htmlFor="nl-nome">Nome *</Label><Input id="nl-nome" required autoFocus {...campo('nome')} /></div>
+          <div className="space-y-2"><Label htmlFor="nl-nome">Nome *</Label><Input id="nl-nome" required {...campo('nome')} /></div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2"><Label htmlFor="nl-tel">Telefone</Label><Input id="nl-tel" inputMode="tel" {...campo('telefone')} /></div>
             <div className="space-y-2"><Label htmlFor="nl-email">E-mail</Label><Input id="nl-email" type="email" {...campo('email')} /></div>
@@ -49,7 +49,7 @@ export function NovoLeadDialog({ crm, aberto, aoMudar }: { crm: Painel } & Abert
           {crm.papel === 'admin' && crm.equipe.length > 1 && (
             <div className="space-y-2">
               <Label htmlFor="nl-resp">Responsável</Label>
-              <select id="nl-resp" {...campo('vendedor_id')} className="h-10 w-full appearance-none rounded-xl border border-input bg-pill-active/55 px-3 text-[13px] outline-none focus-visible:ring-3 focus-visible:ring-ring/20 dark:bg-white/6">
+              <select id="nl-resp" {...campo('vendedor_id')} className="h-10 w-full appearance-none rounded-xl border border-input bg-pill-active/55 px-3 text-[13px] dark:bg-white/6">
                 <option value="">Sem responsável</option>
                 {crm.equipe.map((m) => <option key={m.id} value={m.id}>{m.nome || m.email}</option>)}
               </select>
@@ -82,7 +82,7 @@ export function ConvidarDialog({ crm, aberto, aoMudar }: { crm: Painel } & Abert
           <DialogDescription>A pessoa recebe um e-mail para criar a senha e entra como vendedor.</DialogDescription>
         </DialogHeader>
         <form onSubmit={enviar} className="space-y-4">
-          <div className="space-y-2"><Label htmlFor="cv-email">E-mail</Label><Input id="cv-email" type="email" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+          <div className="space-y-2"><Label htmlFor="cv-email">E-mail</Label><Input id="cv-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => aoMudar(false)}>Cancelar</Button>
             <Button type="submit" disabled={enviando}>{enviando ? 'Enviando…' : 'Enviar convite'}</Button>
@@ -154,7 +154,7 @@ export function FichaLeadDialog({ crm, lead, aoFechar }: { crm: Painel; lead: Le
                   <select
                     value={atual.etapa_id ?? ''}
                     onChange={(e) => void crm.moverLead(atual.id, e.target.value)}
-                    className="h-8 appearance-none rounded-full border border-glass-border bg-pill-active/60 pr-3 pl-7 text-xs font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/25 dark:bg-white/8"
+                    className="h-8 appearance-none rounded-full border border-glass-border bg-pill-active/60 pr-3 pl-7 text-xs font-medium dark:bg-white/8"
                   >
                     {crm.etapas.map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
                   </select>
@@ -219,7 +219,7 @@ export function FichaLeadDialog({ crm, lead, aoFechar }: { crm: Painel; lead: Le
                             aria-checked={t.concluida}
                             aria-label={`Marcar “${t.descricao}” como ${t.concluida ? 'pendente' : 'concluído'}`}
                             onClick={async () => { await crm.alternarTarefa(t.id, t.concluida); void recarregar(); }}
-                            className={cn('grid size-5 shrink-0 place-items-center rounded-full border-2', t.concluida ? 'border-brand bg-brand text-brand-foreground' : 'border-foreground/30 hover:border-brand')}
+                            className={cn('grid size-5 shrink-0 place-items-center rounded-full border-2', t.concluida ? 'border-brand-solid bg-brand-solid text-brand-solid-foreground' : 'border-foreground/30 hover:border-brand')}
                           >
                             {t.concluida && <Check className="size-3" strokeWidth={3} />}
                           </button>

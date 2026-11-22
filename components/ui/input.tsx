@@ -8,7 +8,7 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
       type={type}
       data-slot="input"
       className={cn(
-        "h-10 w-full min-w-0 rounded-xl border border-input bg-pill-active/55 px-3 text-[13px] text-foreground shadow-[inset_0_1px_2px_rgb(40_25_15/0.05)] transition-[border-color,box-shadow,background-color] duration-150 outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-xs file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:bg-pill-active/80 focus-visible:ring-3 focus-visible:ring-ring/20 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-60 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:bg-white/6 dark:focus-visible:bg-white/10",
+        "h-10 w-full min-w-0 rounded-xl border border-input bg-pill-active/55 px-3 text-[13px] text-foreground shadow-[inset_0_1px_2px_rgb(40_25_15/0.05)] transition-[border-color,box-shadow,background-color] duration-150 file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-xs file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:bg-pill-active/80 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-60 aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/30 dark:bg-white/6 dark:focus-visible:bg-white/10",
         className
       )}
       {...props}

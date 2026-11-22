@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { corTextoSobre } from '@/lib/marca';
+import { corTextoSobre, estiloMarca } from '@/lib/marca';
 
 const CORES = [
   { nome: 'Coral', cor: '#da4c3c' },
@@ -17,7 +17,7 @@ const CORES = [
 export function SeletorMarca() {
   const [cor, setCor] = useState(CORES[0].cor);
   return (
-    <div className="glass-card flex h-full flex-col p-5 sm:p-6" style={{ ['--brand' as string]: cor, ['--brand-foreground' as string]: corTextoSobre(cor) }}>
+    <div className="glass-card flex h-full flex-col p-5 sm:p-6" style={estiloMarca(cor)}>
       <div role="radiogroup" aria-label="Cor da marca na prévia" className="flex flex-wrap gap-2">
         {CORES.map((c) => (
           <button
@@ -36,7 +36,7 @@ export function SeletorMarca() {
       </div>
       <div className="mt-6 flex flex-1 flex-col justify-end gap-4" aria-hidden>
         <div className="flex items-center gap-3">
-          <span className="grid size-10 place-items-center rounded-full bg-brand text-sm font-bold text-brand-foreground transition-colors duration-300">SF</span>
+          <span className="grid size-10 place-items-center rounded-full bg-brand-solid text-sm font-bold text-brand-solid-foreground transition-colors duration-300">SF</span>
           <div>
             <p className="text-[13px] font-semibold">Studio Fit</p>
             <p className="text-xs text-ink-2">Seu logo e sua cor no topo do painel</p>

@@ -37,6 +37,8 @@ export function useDashboard() {
   const [supabase] = useState(createClient);
   const [carregando, setCarregando] = useState(true);
   const [email, setEmail] = useState<string | null>(null);
+  const [meuId, setMeuId] = useState<string | null>(null);
+  const [nome, setNome] = useState<string>('');
   const [empresas, setEmpresas] = useState<EmpresaAdmin[]>([]);
   const [perfis, setPerfis] = useState<{ id: string; empresa_id: string | null }[]>([]);
   const [totalLeads, setTotalLeads] = useState(0);
@@ -44,13 +46,15 @@ export function useDashboard() {
   const carregar = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { router.push('/login'); return; }
-    const { data: meu } = await supabase.from('perfis').select('role').eq('id', session.user.id).single();
+    const { data: meu } = await supabase.from('perfis').select('role, nome').eq('id', session.user.id).single();
     if (meu?.role !== 'superadmin') {
       toast.error('Acesso restrito ao superadmin.');
       router.push('/painel');
       return;
     }
     setEmail(session.user.email ?? null);
+    setMeuId(session.user.id);
+    setNome((meu?.nome as string) || '');
     const [{ data: emps }, { data: pfs }, { count }] = await Promise.all([
       supabase.from('empresas').select('*').order('created_at', { ascending: false }),
       supabase.from('perfis').select('id, empresa_id'),
@@ -108,9 +112,18 @@ export function useDashboard() {
     }
   }, [supabase, carregar]);
 
+  const salvarNome = useCallback(async (novo: string) => {
+    if (!meuId) return false;
+    const { error } = await supabase.from('perfis').update({ nome: novo }).eq('id', meuId);
+    if (error) { toast.error('Não foi possível salvar o nome.'); return false; }
+    setNome(novo);
+    toast.success('Nome atualizado');
+    return true;
+  }, [meuId, supabase]);
+
   const membros = useCallback((empresaId: string) => perfis.filter((p) => p.empresa_id === empresaId).length, [perfis]);
 
-  return { carregando, email, empresas, perfis, totalLeads, sair, alternarStatus, criarEmpresa, membros };
+  return { carregando, email, nome, empresas, perfis, totalLeads, sair, alternarStatus, criarEmpresa, membros, salvarNome };
 }
 
 export type Dashboard = ReturnType<typeof useDashboard>;

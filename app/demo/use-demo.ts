@@ -250,6 +250,13 @@ export function useDemoPainel() {
     toast.success('Cargo atualizado');
   }, []);
 
+  const salvarNome = useCallback(async (nome: string) => {
+    await espera();
+    setEquipe((prev) => prev.map((m) => (m.id === userId ? { ...m, nome } : m)));
+    toast.success('Nome atualizado', { description: 'Na demonstração, vale até recarregar a página.' });
+    return true;
+  }, [userId]);
+
   const removerMembro = useCallback(async (m: Membro) => {
     if (m.id === userId) { toast.error('Você não pode remover o seu próprio acesso.'); return; }
     setEquipe((prev) => prev.filter((x) => x.id !== m.id));
@@ -267,12 +274,12 @@ export function useDemoPainel() {
     leads,
     equipe,
     tarefas,
-    nomeUsuario: nomeDe(userId) ?? 'Você',
+    nomeUsuario: equipe.find((m) => m.id === userId)?.nome || nomeDe(userId) || 'Você',
     recarregar: async () => {},
     sair,
     criarLead, moverLead, importarCSV,
     carregarFicha, adicionarAnotacao, apagarAnotacao, criarTarefa, alternarTarefa, apagarTarefa,
-    salvarMarca, enviarMarca, removerMarca, adicionarEtapa, removerEtapa, convidar, mudarPapel, removerMembro,
+    salvarMarca, enviarMarca, removerMarca, adicionarEtapa, removerEtapa, convidar, mudarPapel, removerMembro, salvarNome,
   };
 
   return { crm, papel, setPapel };

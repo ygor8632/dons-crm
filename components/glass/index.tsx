@@ -11,7 +11,7 @@ export function CardTitle({ titulo, descricao, acao, className }: { titulo: stri
   return (
     <div className={cn('flex items-start justify-between gap-3', className)}>
       <div className="min-w-0">
-        <h3 className="text-[15px] font-semibold tracking-[-0.01em]">{titulo}</h3>
+        <h2 className="text-[15px] font-semibold tracking-[-0.01em]">{titulo}</h2>
         {descricao && <p className="mt-0.5 text-xs text-muted-foreground">{descricao}</p>}
       </div>
       {acao}

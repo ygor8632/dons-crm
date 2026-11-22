@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { HoldToDeleteButton } from '@/components/microkit/hold-to-delete-button';
 import { useTema } from '@/components/theme/theme';
+import { CampoNome } from '@/components/conta/campo-nome';
 import { COR_PADRAO, hexValido } from '@/lib/marca';
 import type { TipoImagem } from '@/lib/marca-storage';
 import { cn } from '@/lib/utils';
@@ -154,6 +155,8 @@ function EnvioImagem({ crm, tipo, titulo, dica, atual, className }: { crm: Paine
           accept="image/png,image/jpeg,image/webp"
           className="sr-only"
           onChange={(e) => void enviar(e.target.files?.[0])}
+          aria-label={tipo === 'logo' ? 'Arquivo do logo' : 'Arquivo da imagem de fundo'}
+          tabIndex={-1}
         />
         <Button type="button" disabled={enviando} onClick={() => inputRef.current?.click()}>
           <ImageUp /> {atual ? 'Trocar imagem' : 'Enviar imagem'}
@@ -162,7 +165,7 @@ function EnvioImagem({ crm, tipo, titulo, dica, atual, className }: { crm: Paine
           <HoldToDeleteButton
             rotulo="Remover"
             rotuloFeito="Removida"
-            descricao={tipo === 'logo' ? 'Remover logo' : 'Remover imagem de fundo'}
+            descricao={tipo === 'logo' ? 'logo' : 'imagem de fundo'}
             aoConfirmar={() => crm.removerMarca(tipo)}
           />
         )}
@@ -194,7 +197,7 @@ function Funil({ crm }: { crm: Painel }) {
                 <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: etapa.cor }} aria-hidden />
                 <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{etapa.nome}</span>
                 <span className="tabular text-xs text-muted-foreground">{n} {n === 1 ? 'lead' : 'leads'}</span>
-                <HoldToDeleteButton rotulo="Excluir" rotuloFeito="Excluída" descricao={`Excluir etapa ${etapa.nome}`} aoConfirmar={() => crm.removerEtapa(etapa)} />
+                <HoldToDeleteButton rotulo="Excluir" rotuloFeito="Excluída" descricao={`etapa ${etapa.nome}`} aoConfirmar={() => crm.removerEtapa(etapa)} />
               </li>
             );
           })}
@@ -213,11 +216,14 @@ function Perfil({ crm }: { crm: Painel }) {
   const { escuro, alternar, seguirSistema } = useTema();
   return (
     <div className="space-y-5">
-      <PageHeader titulo="Meu perfil" subtitulo="Seus dados de acesso e preferências deste aparelho." />
+      <PageHeader titulo="Meu perfil" subtitulo="Seu nome, seus dados de acesso e as preferências deste aparelho." />
       <div className="grid max-w-3xl gap-4 md:grid-cols-2">
         <GlassCard>
           <CardTitle titulo="Conta" />
-          <div className="mt-4 space-y-2">
+          <div className="mt-4">
+            <CampoNome inicial={crm.equipe.find((m) => m.id === crm.userId)?.nome ?? ''} aoSalvar={crm.salvarNome} />
+          </div>
+          <div className="mt-5 space-y-2">
             <Label htmlFor="perfil-email">E-mail</Label>
             <Input id="perfil-email" disabled value={crm.userEmail ?? ''} />
             <p className="text-xs text-muted-foreground">Cargo: {crm.papel === 'admin' ? 'Administrador' : 'Vendedor'}</p>

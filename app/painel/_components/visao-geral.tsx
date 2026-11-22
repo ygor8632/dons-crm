@@ -86,7 +86,7 @@ export function VisaoGeral({ crm, visao, abrirLead, irPara, novoLead }: Props) {
           <CardTitle titulo="Leads por mês" descricao="Últimos 6 meses · mês atual em destaque" />
           <div className="mt-4 h-56 min-h-56 text-brand" role="img" aria-label={`Leads por mês: ${porMes.map((m) => `${m.mes} ${m.quantidade}`).join(', ')}`}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={porMes} margin={{ top: 8, right: 4, left: -28, bottom: 0 }} barCategoryGap="28%">
+              <BarChart accessibilityLayer={false} data={porMes} margin={{ top: 8, right: 4, left: -28, bottom: 0 }} barCategoryGap="28%">
                 <defs>
                   <pattern id="hachura" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
                     <rect width="6" height="6" fill="var(--brand)" opacity="0.55" />
@@ -114,8 +114,8 @@ export function VisaoGeral({ crm, visao, abrirLead, irPara, novoLead }: Props) {
             <div className="mt-2 flex flex-col items-center gap-5 sm:flex-row">
               <div className="relative size-44 shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={funil.filter((f) => f.value > 0)} dataKey="value" innerRadius="72%" outerRadius="100%" paddingAngle={3} cornerRadius={6} stroke="none" isAnimationActive={false}>
+                  <PieChart accessibilityLayer={false}>
+                    <Pie rootTabIndex={-1} data={funil.filter((f) => f.value > 0)} dataKey="value" innerRadius="72%" outerRadius="100%" paddingAngle={3} cornerRadius={6} stroke="none" isAnimationActive={false}>
                       {funil.filter((f) => f.value > 0).map((f) => <Cell key={f.name} fill={f.cor} />)}
                     </Pie>
                     <Tooltip content={<DicaGrafico formato={(v) => `${v} ${v === 1 ? 'lead' : 'leads'}`} />} />
@@ -196,7 +196,7 @@ export function VisaoGeral({ crm, visao, abrirLead, irPara, novoLead }: Props) {
 
         <GlassCard className="p-2 sm:p-3 lg:col-span-12">
           <div className="flex items-center justify-between px-3 pt-2 pb-3">
-            <h3 className="text-[15px] font-semibold tracking-[-0.01em]">Últimos leads</h3>
+            <h2 className="text-[15px] font-semibold tracking-[-0.01em]">Últimos leads</h2>
             <Button size="xs" variant="outline" onClick={() => irPara('visao', 'atividade')}>Ver atividade</Button>
           </div>
           <TabelaRecentes leads={leads.slice(0, 5)} crm={crm} abrirLead={abrirLead} />
@@ -209,7 +209,7 @@ export function VisaoGeral({ crm, visao, abrirLead, irPara, novoLead }: Props) {
 function TabelaRecentes({ leads, crm, abrirLead }: { leads: Lead[]; crm: Painel; abrirLead: (l: Lead) => void }) {
   if (leads.length === 0) return <p className="px-3 py-8 text-center text-xs text-muted-foreground">Nenhum lead ainda.</p>;
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className="w-full min-w-[640px] text-left text-[13px]">
         <thead>
           <tr className="text-xs text-muted-foreground">
@@ -226,7 +226,7 @@ function TabelaRecentes({ leads, crm, abrirLead }: { leads: Lead[]; crm: Painel;
             return (
               <tr key={l.id} className="border-b border-border/60 last:border-0">
                 <td className="max-w-[260px] px-3 py-3">
-                  <button type="button" onClick={() => abrirLead(l)} className="block max-w-full truncate font-medium hover:underline">{l.nome}</button>
+                  <button type="button" onClick={() => abrirLead(l)} className="block max-w-full truncate py-1 font-medium hover:underline">{l.nome}</button>
                 </td>
                 <td className="px-3 py-3 text-muted-foreground">{l.origem || 'Direto'}</td>
                 <td className="px-3 py-3">

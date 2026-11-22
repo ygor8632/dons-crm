@@ -51,7 +51,7 @@ export function Leads({ crm, visao, abrirLead, novoLead, irPara }: Props) {
             onChange={(e) => setBusca(e.target.value)}
             placeholder="Filtrar por nome, e-mail ou telefone"
             aria-label="Filtrar leads"
-            className="h-10 w-full rounded-full border border-glass-border bg-pill-active/55 pr-4 pl-10 text-[13px] outline-none placeholder:text-muted-foreground focus-visible:ring-3 focus-visible:ring-ring/25 dark:bg-white/6"
+            className="h-10 w-full rounded-full border border-glass-border bg-pill-active/55 pr-4 pl-10 text-[13px] placeholder:text-muted-foreground dark:bg-white/6"
           />
         </div>
         {visao === 'lista' && (
@@ -61,7 +61,7 @@ export function Leads({ crm, visao, abrirLead, novoLead, irPara }: Props) {
               value={etapaFiltro}
               onChange={(e) => setEtapaFiltro(e.target.value)}
               aria-label="Filtrar por etapa"
-              className="h-10 w-full appearance-none rounded-full border border-glass-border bg-pill-active/55 pr-4 pl-10 text-[13px] outline-none focus-visible:ring-3 focus-visible:ring-ring/25 dark:bg-white/6"
+              className="h-10 w-full appearance-none rounded-full border border-glass-border bg-pill-active/55 pr-4 pl-10 text-[13px] dark:bg-white/6"
             >
               <option value="todas">Todas as etapas</option>
               {crm.etapas.map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
@@ -88,7 +88,7 @@ export function Leads({ crm, visao, abrirLead, novoLead, irPara }: Props) {
 function Kanban({ crm, leads, abrirLead }: { crm: Painel; leads: Lead[]; abrirLead: (l: Lead) => void }) {
   const [sobre, setSobre] = useState<string | null>(null);
   return (
-    <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 md:mx-0 md:px-0">
+    <div className="relative -mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 md:mx-0 md:px-0">
       {crm.etapas.map((etapa) => {
         const daEtapa = leads.filter((l) => l.etapa_id === etapa.id);
         const total = daEtapa.reduce((s, l) => s + (l.valor || 0), 0);
@@ -105,10 +105,10 @@ function Kanban({ crm, leads, abrirLead }: { crm: Painel; leads: Lead[]; abrirLe
             )}
           >
             <header className="flex items-center justify-between gap-2 px-2 pt-1.5 pb-3">
-              <h3 className="flex min-w-0 items-center gap-2 text-[13px] font-semibold">
+              <h2 className="flex min-w-0 items-center gap-2 text-[13px] font-semibold">
                 <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: etapa.cor }} aria-hidden />
                 <span className="truncate">{etapa.nome}</span>
-              </h3>
+              </h2>
               <span className="tabular shrink-0 rounded-full bg-pill-active/80 px-2 py-0.5 text-[11px] font-semibold dark:bg-white/10">{daEtapa.length}</span>
             </header>
             {total > 0 && <p className="tabular -mt-2 px-2 pb-2 text-xs text-muted-foreground">{formatarMoeda(total)}</p>}
@@ -160,7 +160,7 @@ function Kanban({ crm, leads, abrirLead }: { crm: Painel; leads: Lead[]; abrirLe
 function Lista({ crm, leads, abrirLead }: { crm: Painel; leads: Lead[]; abrirLead: (l: Lead) => void }) {
   return (
     <GlassCard className="p-2 sm:p-3">
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="w-full min-w-[720px] text-left text-[13px]">
           <thead>
             <tr className="text-xs text-muted-foreground">
@@ -180,7 +180,7 @@ function Lista({ crm, leads, abrirLead }: { crm: Painel; leads: Lead[]; abrirLea
               return (
                 <tr key={lead.id} className="border-b border-border/60 last:border-0">
                   <td className="max-w-[280px] px-3 py-3">
-                    <button type="button" onClick={() => abrirLead(lead)} className="block max-w-full truncate font-medium hover:underline">{lead.nome}</button>
+                    <button type="button" onClick={() => abrirLead(lead)} className="block max-w-full truncate py-1 font-medium hover:underline">{lead.nome}</button>
                     <span className="block truncate text-xs text-muted-foreground">{lead.telefone || lead.email || 'Sem contato'}</span>
                   </td>
                   <td className="px-3 py-3">
@@ -190,7 +190,7 @@ function Lista({ crm, leads, abrirLead }: { crm: Painel; leads: Lead[]; abrirLea
                       <select
                         value={lead.etapa_id ?? ''}
                         onChange={(e) => void crm.moverLead(lead.id, e.target.value)}
-                        className="h-8 appearance-none rounded-full border border-glass-border bg-pill-active/60 pr-3 pl-6 text-xs font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/25 dark:bg-white/8"
+                        className="h-8 appearance-none rounded-full border border-glass-border bg-pill-active/60 pr-3 pl-6 text-xs font-medium dark:bg-white/8"
                       >
                         {crm.etapas.map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
                       </select>
@@ -243,10 +243,10 @@ function Tarefas({ crm, abrirLead }: { crm: Painel; abrirLead: (l: Lead) => void
         <div className="grid gap-4 lg:grid-cols-2">
           {porGrupo.filter((g) => g.itens.length > 0).map((g) => (
             <GlassCard key={g.id}>
-              <h3 className={cn('mb-3 flex items-center gap-2 text-[15px] font-semibold', g.id === 'atrasada' && 'text-destructive')}>
+              <h2 className={cn('mb-3 flex items-center gap-2 text-[15px] font-semibold', g.id === 'atrasada' && 'text-destructive')}>
                 {g.titulo}
                 <span className="tabular rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-foreground">{g.itens.length}</span>
-              </h3>
+              </h2>
               <ul className="space-y-1">
                 {g.itens.map((t) => {
                   const lead = crm.leads.find((l) => l.id === t.lead_id);
@@ -258,7 +258,7 @@ function Tarefas({ crm, abrirLead }: { crm: Painel; abrirLead: (l: Lead) => void
                         aria-checked={t.concluida}
                         aria-label={`Marcar “${t.descricao}” como ${t.concluida ? 'pendente' : 'concluído'}`}
                         onClick={() => void crm.alternarTarefa(t.id, t.concluida)}
-                        className={cn('grid size-5 shrink-0 place-items-center rounded-full border-2 transition-colors duration-150', t.concluida ? 'border-brand bg-brand text-brand-foreground' : 'border-foreground/30 hover:border-brand')}
+                        className={cn('grid size-5 shrink-0 place-items-center rounded-full border-2 transition-colors duration-150', t.concluida ? 'border-brand-solid bg-brand-solid text-brand-solid-foreground' : 'border-foreground/30 hover:border-brand')}
                       >
                         {t.concluida && <Check className="size-3" strokeWidth={3} />}
                       </button>

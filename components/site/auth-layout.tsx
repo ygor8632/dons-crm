@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { Marca } from './site';
 import { ProdutoPreview } from './produto-preview';
 
@@ -17,11 +16,10 @@ export function AuthLayout({ titulo, subtitulo, children, rodape }: { titulo: st
           </div>
           {rodape && <div className="entra mt-5 px-2 text-center text-[13px] text-ink-2" style={{ ['--i' as string]: 2 }}>{rodape}</div>}
         </main>
-        <div className="entra hidden lg:block" style={{ ['--i' as string]: 1 }}>
+        <aside aria-label="Prévia do painel" className="entra hidden lg:block" style={{ ['--i' as string]: 1 }}>
           <ProdutoPreview />
-        </div>
+        </aside>
       </div>
-      <Link href="/" className="sr-only">Voltar para a página inicial</Link>
     </div>
   );
 }

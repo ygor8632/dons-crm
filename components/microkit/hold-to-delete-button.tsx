@@ -44,7 +44,7 @@ export function HoldToDeleteButton({
   aoConfirmar: () => void | Promise<void>;
   rotulo?: string;
   rotuloFeito?: string;
-  /** Texto para leitores de tela, ex.: "Excluir etapa Proposta" */
+  /** Complemento para leitores de tela, ex.: "etapa Proposta" (o nome começa pelo texto visível) */
   descricao?: string;
   className?: string;
 }) {
@@ -81,7 +81,6 @@ export function HoldToDeleteButton({
   return (
     <button
       type="button"
-      aria-label={descricao ? `${descricao} (segure)` : undefined}
       className={cn(
         "group relative inline-flex h-8 shrink-0 cursor-pointer touch-manipulation items-center justify-center overflow-hidden rounded-full bg-destructive/10 px-3 text-xs font-medium text-destructive select-none [-webkit-touch-callout:none]",
         "[transition:transform_.25s_cubic-bezier(.16,1,.3,1),background-color_.2s_ease] hover:data-[state=idle]:bg-destructive/16 motion-safe:data-[state=holding]:scale-[.97] data-[state=deleted]:cursor-default",
@@ -98,6 +97,7 @@ export function HoldToDeleteButton({
       onContextMenu={(event) => event.preventDefault()}
     >
       <ButtonContent deleted={state === "deleted"} rotulo={rotulo} rotuloFeito={rotuloFeito} />
+      {descricao && <span className="sr-only">: {descricao}. Segure para confirmar</span>}
       <span
         className="pointer-events-none absolute inset-0 flex items-center justify-center bg-destructive text-white [clip-path:inset(0_100%_0_0)] [transition:clip-path_.4s_cubic-bezier(.16,1,.3,1)] group-data-[state=holding]:[clip-path:inset(0)] group-data-[state=holding]:[transition:clip-path_1.2s_linear] group-data-[state=deleted]:[clip-path:inset(0)] dark:text-[#1b1716]"
         aria-hidden="true"

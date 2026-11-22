@@ -30,7 +30,7 @@ export default function EsqueciSenha() {
     <AuthLayout
       titulo="Recuperar a senha"
       subtitulo="Enviamos um link para você criar uma senha nova."
-      rodape={<Link href="/login" className="font-medium text-foreground underline underline-offset-4">Voltar para o login</Link>}
+      rodape={<Link href="/login" className="inline-block py-2 font-medium text-foreground underline underline-offset-4">Voltar para o login</Link>}
     >
       {enviado ? (
         <div className="space-y-3" role="status">

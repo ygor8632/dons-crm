@@ -3,12 +3,12 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full border border-transparent bg-clip-padding font-medium whitespace-nowrap outline-none select-none [transition:transform_160ms_var(--ease-out),background-color_160ms_var(--ease-out),opacity_160ms] focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent active:not-aria-[haspopup]:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full border border-transparent bg-clip-padding font-medium whitespace-nowrap select-none [transition:transform_160ms_var(--ease-out),background-color_160ms_var(--ease-out),opacity_160ms] active:not-aria-[haspopup]:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/85",
-        brand: "bg-brand text-brand-foreground hover:bg-brand/88",
+        brand: "bg-brand-solid text-brand-solid-foreground hover:bg-brand-solid/88",
         outline:
           "border-glass-border bg-pill-active/70 text-foreground shadow-[inset_0_1px_0_var(--glass-edge)] hover:bg-pill-active dark:bg-white/8 dark:text-foreground dark:hover:bg-white/14",
         secondary:

@@ -54,7 +54,7 @@ export default function RedefinirSenha() {
     <AuthLayout
       titulo="Criar uma senha nova"
       subtitulo="Depois de salvar, você entra direto no seu painel."
-      rodape={<Link href="/login" className="font-medium text-foreground underline underline-offset-4">Voltar para o login</Link>}
+      rodape={<Link href="/login" className="inline-block py-2 font-medium text-foreground underline underline-offset-4">Voltar para o login</Link>}
     >
       {sucesso ? (
         <div className="space-y-3" role="status">

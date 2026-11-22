@@ -38,8 +38,9 @@ export default function SuperAdminDashboard() {
 
   if (dash.carregando) return <ShellCarregando texto="Carregando a torre de controle…" />;
 
+  // O nome definido em Configurações; sem ele, o começo do e-mail
   const usuarioEmail = dash.email?.split('@')[0] ?? 'admin';
-  const nome = usuarioEmail.charAt(0).toUpperCase() + usuarioEmail.slice(1);
+  const nome = dash.nome || usuarioEmail.charAt(0).toUpperCase() + usuarioEmail.slice(1);
   const base = { dash, suspender: setSuspender, novaEmpresa: () => setNovaEmpresa(true) };
 
   return (
