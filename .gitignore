@@ -43,3 +43,6 @@ next-env.d.ts
 # Skill grande (38 MB), baixada pelo hook .claude/hooks/install-taste-skill.sh
 .claude/skills/taste-skill/
 .taste-skill/
+
+# Notas de pesquisa (relatórios finais ficam em reports/)
+research_notes/
