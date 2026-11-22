@@ -52,4 +52,4 @@ esqueci/redefinir senha e demo**, no mesmo sistema visual.
 
 ## Entrega
 
-Prints de antes/depois por tela; aprovação do cliente antes de cada merge na `main`.
+Prints de antes/depois por tela. Merge na `main` previamente autorizado (ver `regras_de_desenvolvimento.md`, seção 5).

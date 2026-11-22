@@ -37,5 +37,6 @@ Utilize prefixos semânticos para facilitar a leitura do histórico:
 Agentes de IA (Claude Code e outros) trabalhando neste repositório estão **previamente autorizados**, sem precisar pedir confirmação a cada vez, a:
 - **Fazer commits** (e o push correspondente) das alterações feitas na sessão.
 - **Criar, alterar e editar SQL**: migrations em `supabase/migrations/`, roteiros de teste em `supabase/tests/` e a aplicação dessas mudanças no banco do Supabase.
+- **Mesclar na `main`** (e dar o push que publica em produção pela Hostinger), acompanhando o build até concluir.
 
-Continua valendo, por segurança: testar a migration antes (ensaio com rollback, como em `supabase/tests/`), seguir a seção 4 (RLS em toda tabela nova, nenhuma chave no repositório) e registrar o que foi feito na mensagem do commit.
+Continua valendo, por segurança: testar a migration antes (ensaio com rollback, como em `supabase/tests/`); antes de mesclar na `main`, rodar `npm run build` sem erros; depois do merge, acompanhar o build na Hostinger e conferir o site no ar; seguir a seção 4 (RLS em toda tabela nova, nenhuma chave no repositório) e registrar o que foi feito na mensagem do commit.

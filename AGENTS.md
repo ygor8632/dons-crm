@@ -10,4 +10,4 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Regras do projeto
 
-Leia `regras_de_desenvolvimento.md` antes de começar. A seção 5 traz autorizações permanentes do dono do projeto: commits e criação/edição/aplicação de SQL (migrations do Supabase) não precisam de confirmação prévia.
+Leia `regras_de_desenvolvimento.md` antes de começar. A seção 5 traz autorizações permanentes do dono do projeto: commits, criação/edição/aplicação de SQL (migrations do Supabase) e merge na `main` (deploy na Hostinger) não precisam de confirmação prévia.
