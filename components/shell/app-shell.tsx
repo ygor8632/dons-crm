@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { MotionConfig, motion } from 'motion/react';
 import type { LucideIcon } from 'lucide-react';
 import { Bell, LogOut, Moon, Plus, Search, Sun, X } from 'lucide-react';
@@ -30,6 +30,8 @@ type AppShellProps = {
   busca: { itens: ItemBusca[]; placeholder: string; aoSelecionar: (id: string) => void };
   notificacoes: { itens: ItemNotificacao[]; vazio: string; aoSelecionar?: (id: string) => void };
   aoSair: () => void;
+  /** Faixa opcional no topo do painel (ex.: aviso da demonstração). */
+  aviso?: React.ReactNode;
   children: React.ReactNode;
 };
 
@@ -37,17 +39,23 @@ type AppShellProps = {
 /* Navegação sincronizada com a URL (?secao=...&visao=...)             */
 /* ------------------------------------------------------------------ */
 
-export function useNavegacao(secoes: Secao[], padrao: string) {
-  // Guarda o pedido cru (da URL ou do clique); a validação acontece no render,
-  // porque as seções podem mudar depois (ex.: o papel do usuário carrega).
-  const [pedido, setPedido] = useState(() => {
-    if (typeof window === 'undefined') return { secao: padrao, visao: '' };
-    const p = new URLSearchParams(window.location.search);
-    return { secao: p.get('secao') ?? padrao, visao: p.get('visao') ?? '' };
-  });
+const assinarUrl = (aoMudar: () => void) => {
+  window.addEventListener('popstate', aoMudar);
+  return () => window.removeEventListener('popstate', aoMudar);
+};
 
-  const secaoAtual = secoes.find((s) => s.id === pedido.secao) ?? secoes.find((s) => s.id === padrao) ?? secoes[0];
-  const visaoAtual = secaoAtual?.visoes.find((v) => v.id === pedido.visao)?.id ?? secaoAtual?.visoes[0]?.id ?? '';
+export function useNavegacao(secoes: Secao[], padrao: string) {
+  // A URL vem por useSyncExternalStore: no servidor (e na hidratação) vale o padrão,
+  // logo depois vale a URL real, sem descompasso entre servidor e cliente.
+  const buscaUrl = useSyncExternalStore(assinarUrl, () => window.location.search, () => '');
+  // Depois do primeiro clique, o pedido da pessoa manda; a validação acontece no render,
+  // porque as seções podem mudar (ex.: o papel do usuário carrega).
+  const [pedido, setPedido] = useState<{ secao: string; visao: string } | null>(null);
+
+  const daUrl = new URLSearchParams(buscaUrl);
+  const alvo = pedido ?? { secao: daUrl.get('secao') ?? padrao, visao: daUrl.get('visao') ?? '' };
+  const secaoAtual = secoes.find((s) => s.id === alvo.secao) ?? secoes.find((s) => s.id === padrao) ?? secoes[0];
+  const visaoAtual = secaoAtual?.visoes.find((v) => v.id === alvo.visao)?.id ?? secaoAtual?.visoes[0]?.id ?? '';
 
   const navegar = useCallback(
     (secao: string, visao?: string) => {
@@ -494,7 +502,7 @@ function VisoesMobile({ secoes, secao, visao, aoNavegar }: Pick<AppShellProps, '
 /* ------------------------------------------------------------------ */
 
 export function AppShell(props: AppShellProps) {
-  const { marca, fundoUrl, usuario, secoes, secao, visao, aoNavegar, criar, busca, notificacoes, aoSair, children } = props;
+  const { marca, fundoUrl, usuario, secoes, secao, visao, aoNavegar, criar, busca, notificacoes, aoSair, aviso, children } = props;
   const painelRef = useRef<HTMLElement>(null);
 
   // Ao trocar de seção, volta o painel ao topo
@@ -525,6 +533,7 @@ export function AppShell(props: AppShellProps) {
           className="glass fixed inset-x-3 top-[76px] bottom-0 z-10 overflow-y-auto rounded-t-[28px] border-b-0 md:top-[88px] md:right-4 md:left-[92px] md:rounded-t-[32px]"
         >
           <div className="mx-auto w-full max-w-[1320px] px-4 pt-6 pb-32 sm:px-6 md:px-10 md:pt-10">
+            {aviso && <div className="mb-6">{aviso}</div>}
             <VisoesMobile secoes={secoes} secao={secao} visao={visao} aoNavegar={aoNavegar} />
             <div key={`${secao}:${visao}`} className="animate-surge">
               {children}

@@ -43,5 +43,14 @@ export function saudacao(data = new Date()) {
 export const formatarMoeda = (valor: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: valor % 1 ? 2 : 0 }).format(valor);
 
-export const formatarMoedaCurta = (valor: number) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact', maximumFractionDigits: 1 }).format(valor);
+/**
+ * "R$ 112,2 mil", "R$ 1,5 mi". Feita à mão porque a notação compacta do Intl
+ * muda entre Node e navegador ("140 mil" × "140,0 mil") e quebra a hidratação.
+ */
+export function formatarMoedaCurta(valor: number) {
+  const abs = Math.abs(valor);
+  const [div, sufixo] = abs >= 1e9 ? [1e9, ' bi'] : abs >= 1e6 ? [1e6, ' mi'] : abs >= 1e3 ? [1e3, ' mil'] : [1, ''];
+  const n = Math.round((valor / div) * 10) / 10;
+  const texto = n.toFixed(Number.isInteger(n) ? 0 : 1).replace('.', ',');
+  return `R$ ${texto}${sufixo}`;
+}

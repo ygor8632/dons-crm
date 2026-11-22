@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { createClient } from '@/utils/supabase/client';
 import { apagarImagem, enviarImagem, resolverImagens, type TipoImagem } from '@/lib/marca-storage';
 import type { Anotacao, Empresa, Etapa, Lead, Membro, Papel, Tarefa } from './tipos';
+import { lerLeadsCSV } from './util';
 
 /**
  * Estado e ações do painel do cliente. Mesmas consultas da versão anterior
@@ -120,24 +121,9 @@ export function usePainel() {
   const importarCSV = useCallback(async (arquivo: File) => {
     if (!empresa || etapas.length === 0) return false;
     try {
-      const texto = await arquivo.text();
-      const linhas = texto.split(/\r?\n/).filter((l) => l.trim() !== '');
-      if (linhas.length < 2) throw new Error('O arquivo não tem linhas de dados.');
-      const sep = linhas[0].includes(';') ? ';' : ',';
-      const cab = linhas[0].split(sep).map((h) => h.trim().toLowerCase().replace(/"/g, ''));
-      const novos = [];
-      for (let i = 1; i < linhas.length; i++) {
-        const vals = linhas[i].split(sep).map((v) => v.trim().replace(/"/g, ''));
-        const o: Record<string, string> = {};
-        cab.forEach((h, idx) => { o[h] = vals[idx] || ''; });
-        if (!o.nome) continue;
-        novos.push({
-          empresa_id: empresa.id, nome: o.nome, email: o.email || null, telefone: o.telefone || null,
-          origem: o.origem || 'Importação CSV', valor: parseFloat(o.valor) || 0, etapa_id: etapas[0].id,
-          vendedor_id: papel === 'vendedor' ? userId : null,
-        });
-      }
-      if (novos.length === 0) throw new Error('Nenhuma linha com a coluna "nome" preenchida.');
+      const novos = lerLeadsCSV(await arquivo.text()).map((l) => ({
+        ...l, empresa_id: empresa.id, etapa_id: etapas[0].id, vendedor_id: papel === 'vendedor' ? userId : null,
+      }));
       const { error } = await supabase.from('leads').insert(novos);
       if (error) throw new Error('O banco recusou a importação.');
       toast.success(`${novos.length} ${novos.length === 1 ? 'lead importado' : 'leads importados'}`);

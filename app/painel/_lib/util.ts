@@ -52,3 +52,21 @@ export function tempoRelativo(iso: string) {
   if (Math.abs(diff) < 86400) return rtf.format(-Math.round(diff / 3600), 'hour');
   return rtf.format(-Math.round(diff / 86400), 'day');
 }
+
+/** Lê um CSV de leads (separador , ou ;). Linhas sem "nome" são ignoradas. */
+export function lerLeadsCSV(texto: string) {
+  const linhas = texto.split(/\r?\n/).filter((l) => l.trim() !== '');
+  if (linhas.length < 2) throw new Error('O arquivo não tem linhas de dados.');
+  const sep = linhas[0].includes(';') ? ';' : ',';
+  const cab = linhas[0].split(sep).map((h) => h.trim().toLowerCase().replace(/"/g, ''));
+  const linhasLidas: { nome: string; email: string | null; telefone: string | null; origem: string; valor: number }[] = [];
+  for (let i = 1; i < linhas.length; i++) {
+    const vals = linhas[i].split(sep).map((v) => v.trim().replace(/"/g, ''));
+    const o: Record<string, string> = {};
+    cab.forEach((h, idx) => { o[h] = vals[idx] || ''; });
+    if (!o.nome) continue;
+    linhasLidas.push({ nome: o.nome, email: o.email || null, telefone: o.telefone || null, origem: o.origem || 'Importação CSV', valor: parseFloat(o.valor) || 0 });
+  }
+  if (linhasLidas.length === 0) throw new Error('Nenhuma linha com a coluna "nome" preenchida.');
+  return linhasLidas;
+}

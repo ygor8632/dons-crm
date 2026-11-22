@@ -52,8 +52,20 @@ Gerados com dados fictícios, interceptando o Supabase no navegador (nada tocou 
   da tela: conferido em print, o anel aparece).
 - Prints: `prints/fase2-*.jpg`.
 
+## Etapa 4: demonstração (22/11/2026)
+- `/demo` deixou de ser uma cópia (439 linhas, visual antigo, 17 erros de lint) e passou a usar o
+  painel real: `app/painel/_components/painel-app.tsx` serve ao painel e à demo. A demo troca só a
+  fonte de dados (`app/demo/use-demo.ts`, mesma interface do `usePainel`, tudo em memória).
+- Funciona de verdade: criar e mover leads, busca, ficha com anotações e follow-ups, sino, importar
+  CSV, trocar nome/cor, enviar logo e fundo (processados no navegador, nada é enviado), funil e equipe.
+- Aviso no topo com "Ver como Administrador / Vendedor": como vendedor vale a mesma regra do banco
+  (os próprios leads e os sem dono) e a seção Integrações some.
+- Corrigido de passagem: descompasso de hidratação na navegação por URL (`useSyncExternalStore`) e
+  no valor compacto em reais (Node e navegador formatavam diferente).
+- Teste automatizado do fluxo (criar → buscar → anotar → agendar → visão de vendedor): tudo ok,
+  0 erros de JavaScript. Prints: `prints/fase2-demo*.jpg`.
+
 ## Pendente (próximas etapas)
-- `/demo` no sistema glassy (ainda na versão antiga, com 17 erros de lint).
 - Configurar `NEXT_PUBLIC_CONTATO_URL` na Hostinger para o botão de consultor aparecer.
 - Testar o envio real com a conta de admin (os testes daqui usaram Storage simulado no navegador).
 - Paleta categórica do modo escuro: âmbar e coral ficam próximos para daltonismo (há legenda e rótulos,
