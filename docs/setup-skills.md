@@ -1,4 +1,20 @@
-# Instalação das skills do projeto
+# Skills, bibliotecas e integrações do projeto
+
+**Status (22/11/2026): instalado.** 27 skills em `.claude/skills/` (commitadas), exceto `taste-skill`
+(38 MB), baixada automaticamente no início de cada sessão pelo hook
+`.claude/hooks/install-taste-skill.sh` (configurado em `.claude/settings.json`; pasta no `.gitignore`).
+Todas foram lidas antes de instalar. Observações da auditoria: `impeccable` baixa seu motor das
+releases oficiais do GitHub quando usado e conversa só com localhost; `brainstorming` sobe um
+servidor local de pré-visualização; `scroll-craft` usa ffmpeg para codificar vídeo.
+
+Origens confirmadas: learn-taste vem de `emilkowalski/skills` (não do taste-skill); a skill do
+`Leonxlnx/taste-skill` chama-se `taste-skill` (design-taste-frontend); brainstorm = `brainstorming`
+(obra/superpowers); grill-me = mattpocock/skills; caveman = JuliusBrussee/caveman.
+
+Para atualizar uma skill: clonar o repositório de origem e substituir a pasta em `.claude/skills/`.
+
+---
+
 
 Rodar numa sessão no ambiente **dons-crm** (tem acesso a `github.com` e `codeload.github.com`).
 Instalar no **projeto** (`.claude/skills/`) e commitar: as sessões na nuvem são descartáveis,
@@ -56,9 +72,9 @@ Componentes do **21st.dev** e do **shadcn/ui** são adicionados sob demanda:
 
 ## Registros e MCP (configurados no repositório)
 - **microkit** (`@microkit`, microinterações): registro em `components.json` → `https://microkit.co/r/{name}.json`.
-  Primeiro componente pedido: `npx shadcn@latest add @microkit/hold-to-delete-button`.
+  Instalado: `components/microkit/hold-to-delete-button.tsx`.
 - **kitbitz** (ícones 3D): servidor MCP em `.mcp.json` → `https://mcp.kitbitz.art`.
-  Confirmar o caminho do endpoint (pode ser `/mcp` ou `/sse`) na primeira sessão que carregá-lo.
+  Endpoint confirmado (HTTP streamable, raiz). Somente leitura: `search_illustrations`, `get_illustration`.
 
 ## Hosts que o ambiente dons-crm precisa liberar
 `ui.shadcn.com` (índice de registros do shadcn), `microkit.co`, `mcp.kitbitz.art`

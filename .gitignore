@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Skill grande (38 MB), baixada pelo hook .claude/hooks/install-taste-skill.sh
+.claude/skills/taste-skill/
