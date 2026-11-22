@@ -32,3 +32,10 @@ Utilize prefixos semânticos para facilitar a leitura do histórico:
 ## 4. Regras de Segurança
 - **Arquivos `.env`:** Os arquivos `.env.local`, `.env.production` ou qualquer outro arquivo com chaves, tokens ou senhas não devem ser partilhados em chats públicos de IA e **nunca** devem ser "commitados" no GitHub. (O arquivo `.gitignore` deve incluir `.env*`).
 - **RLS do Supabase:** Qualquer nova tabela criada no Supabase **deve obrigatoriamente** ter o *Row Level Security* (RLS) ativado e incluir políticas que restrinjam a leitura/escrita baseadas no `tenant_id` e na função `is_superadmin()`.
+
+## 5. Autorizações permanentes (definidas pelo dono do projeto em 22/11/2026)
+Agentes de IA (Claude Code e outros) trabalhando neste repositório estão **previamente autorizados**, sem precisar pedir confirmação a cada vez, a:
+- **Fazer commits** (e o push correspondente) das alterações feitas na sessão.
+- **Criar, alterar e editar SQL**: migrations em `supabase/migrations/`, roteiros de teste em `supabase/tests/` e a aplicação dessas mudanças no banco do Supabase.
+
+Continua valendo, por segurança: testar a migration antes (ensaio com rollback, como em `supabase/tests/`), seguir a seção 4 (RLS em toda tabela nova, nenhuma chave no repositório) e registrar o que foi feito na mensagem do commit.
