@@ -9,6 +9,7 @@ import { formatarMoeda, formatarMoedaCurta } from '@/lib/marca';
 import { cn } from '@/lib/utils';
 import type { Painel } from '../_lib/use-painel';
 import type { Lead } from '../_lib/tipos';
+import { CartaoMeta } from './relatorios';
 import { emAberto, estaGanho, etapaFinal, formatarDataHora, grupoTarefa, leadsPorMes, tempoRelativo, valorPonderado, variacaoMensal } from '../_lib/util';
 
 type Props = { crm: Painel; visao: string; abrirLead: (l: Lead) => void; irPara: (secao: string, visao?: string) => void; novoLead: () => void };
@@ -61,6 +62,7 @@ export function VisaoGeral({ crm, visao, abrirLead, irPara, novoLead }: Props) {
   const proximos = useMemo(() => tarefas.filter((t) => !t.concluida).slice(0, 4), [tarefas]);
 
   const primeiroNome = nomeUsuario.split(' ')[0];
+  const inicioDoMesAtual = useMemo(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); }, []);
 
   if (visao === 'atividade') {
     return (
@@ -79,6 +81,8 @@ export function VisaoGeral({ crm, visao, abrirLead, irPara, novoLead }: Props) {
         titulo={`Seu funil hoje, ${primeiroNome}`}
         subtitulo="Acompanhe o pipeline, as conversões e o que precisa de retorno."
       />
+
+      <CartaoMeta compacto crm={crm} leads={leads} usuarioId={crm.papel === 'admin' ? null : crm.userId} mesInicio={inicioDoMesAtual} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 [&>*]:min-w-0">
         <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:col-span-7 [&>*]:min-w-0">

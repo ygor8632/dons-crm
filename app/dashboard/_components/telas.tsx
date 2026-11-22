@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { Building2, CalendarClock, Database, Lock, Moon, Search, Sun, Unlock, Users } from 'lucide-react';
+import { Activity, AlertTriangle, Building2, CalendarClock, CircleCheck, Database, Lock, Moon, Search, Sun, Unlock, Users } from 'lucide-react';
 import { CardTitle, EmptyState, GlassCard, PageHeader, StatCard, Toggle, iniciais } from '@/components/glass';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -12,7 +12,7 @@ import { useTema } from '@/components/theme/theme';
 import { CampoNome } from '@/components/conta/campo-nome';
 import { cn } from '@/lib/utils';
 import { COR_PADRAO, corSolida } from '@/lib/marca';
-import { PLANOS, diasParaVencer, rotuloPlano, type Dashboard, type EmpresaAdmin } from '../_lib/use-dashboard';
+import { PLANOS, avaliarSaude, diasParaVencer, rotuloPlano, type Dashboard, type EmpresaAdmin, type NivelSaude } from '../_lib/use-dashboard';
 
 type Base = { dash: Dashboard; suspender: (e: EmpresaAdmin) => void; novaEmpresa: () => void };
 
@@ -320,5 +320,86 @@ export function SuspenderDialog({ dash, empresa, aoFechar }: { dash: Dashboard; 
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/* ---------------- Saúde de adoção ---------------- */
+
+const NIVEIS: Record<NivelSaude, { rotulo: string; classe: string; ordem: number }> = {
+  risco: { rotulo: 'Em risco', classe: 'bg-destructive/12 text-destructive', ordem: 0 },
+  atencao: { rotulo: 'Atenção', classe: 'bg-amber-500/15 text-amber-800 dark:text-amber-200', ordem: 1 },
+  saudavel: { rotulo: 'Saudável', classe: 'bg-positive text-positive-foreground', ordem: 2 },
+  sem_uso: { rotulo: 'Sem uso', classe: 'bg-foreground/8 text-muted-foreground', ordem: 3 },
+};
+
+function haQuanto(iso: string | null) {
+  if (!iso) return 'nunca';
+  const d = Math.floor((Date.now() - new Date(iso).getTime()) / 864e5);
+  return d <= 0 ? 'hoje' : d === 1 ? 'ontem' : `há ${d} dias`;
+}
+
+export function Saude({ dash }: { dash: Dashboard }) {
+  const linhas = useMemo(() => dash.empresas
+    .filter((e) => e.ativo)
+    .map((e) => { const s = dash.saude.find((x) => x.empresa_id === e.id); return { e, s, ...avaliarSaude(s) }; })
+    .sort((a, b) => NIVEIS[a.nivel].ordem - NIVEIS[b.nivel].ordem || a.e.nome.localeCompare(b.e.nome)), [dash.empresas, dash.saude]);
+  const contar = (n: NivelSaude) => linhas.filter((l) => l.nivel === n).length;
+
+  return (
+    <div className="space-y-6">
+      <PageHeader titulo="Saúde dos clientes" subtitulo="Quem está usando o CRM nesta semana e onde o funil está ficando para trás. Clientes suspensos ficam de fora." />
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 [&>*]:min-w-0">
+        <StatCard rotulo="Em risco" icone={AlertTriangle} valor={contar('risco')} legenda="pedem contato esta semana" />
+        <StatCard rotulo="Atenção" icone={Activity} valor={contar('atencao')} legenda="algum sinal de queda" />
+        <StatCard rotulo="Saudáveis" icone={CircleCheck} valor={contar('saudavel')} legenda="time usando, funil em dia" />
+        <StatCard rotulo="Sem uso" icone={Users} valor={contar('sem_uso')} legenda="ainda não começaram" />
+      </div>
+      <GlassCard className="p-2 sm:p-3">
+        {linhas.length === 0 ? (
+          <EmptyState icone={Building2} titulo="Nenhum cliente ativo" texto="Quando houver empresas ativas, a adoção de cada uma aparece aqui." />
+        ) : (
+          <div className="relative overflow-x-auto">
+            <table className="w-full min-w-[860px] text-left text-[13px]">
+              <thead>
+                <tr className="text-xs text-muted-foreground">
+                  <th className="rounded-l-xl bg-pill-active/55 px-3 py-2.5 font-medium dark:bg-white/5">Cliente</th>
+                  <th className="bg-pill-active/55 px-3 py-2.5 font-medium dark:bg-white/5">Situação</th>
+                  <th className="bg-pill-active/55 px-3 py-2.5 text-right font-medium dark:bg-white/5">Ativos na semana</th>
+                  <th className="bg-pill-active/55 px-3 py-2.5 text-right font-medium dark:bg-white/5">Leads 7 dias</th>
+                  <th className="bg-pill-active/55 px-3 py-2.5 text-right font-medium dark:bg-white/5">Sem próximo passo</th>
+                  <th className="bg-pill-active/55 px-3 py-2.5 text-right font-medium dark:bg-white/5">Atrasados</th>
+                  <th className="bg-pill-active/55 px-3 py-2.5 text-right font-medium dark:bg-white/5">Parados</th>
+                  <th className="rounded-r-xl bg-pill-active/55 px-3 py-2.5 font-medium dark:bg-white/5">Último uso</th>
+                </tr>
+              </thead>
+              <tbody className="tabular">
+                {linhas.map(({ e, s, nivel, motivos }) => {
+                  const queda = s && s.leads_7d_anterior > 0 ? Math.round(((s.leads_7d - s.leads_7d_anterior) / s.leads_7d_anterior) * 100) : null;
+                  return (
+                    <tr key={e.id} className="border-b border-border/60 align-top last:border-0">
+                      <td className="max-w-[220px] px-3 py-3"><span className="block truncate font-medium">{e.nome}</span><span className="text-xs text-muted-foreground">{rotuloPlano(e.plano)}</span></td>
+                      <td className="max-w-[280px] px-3 py-3">
+                        <span className={cn('inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold', NIVEIS[nivel].classe)}>{NIVEIS[nivel].rotulo}</span>
+                        <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">{motivos.map((m) => <li key={m}>{m}</li>)}</ul>
+                      </td>
+                      <td className="px-3 py-3 text-right">{s ? `${s.ativos_7d} de ${s.usuarios}` : '—'}</td>
+                      <td className="px-3 py-3 text-right">
+                        {s?.leads_7d ?? '—'}
+                        {queda != null && <span className={cn('block text-xs', queda < 0 ? 'text-destructive' : 'text-muted-foreground')}>{queda > 0 ? '+' : ''}{queda}% vs. semana anterior</span>}
+                      </td>
+                      <td className="px-3 py-3 text-right">{s ? `${s.sem_proximo_passo} de ${s.abertos}` : '—'}</td>
+                      <td className={cn('px-3 py-3 text-right', (s?.atrasados ?? 0) >= 3 && 'text-destructive')}>{s?.atrasados ?? '—'}</td>
+                      <td className="px-3 py-3 text-right">{s?.parados ?? '—'}</td>
+                      <td className="px-3 py-3 whitespace-nowrap">{haQuanto(s?.ultima_atividade ?? null)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </GlassCard>
+      <p className="text-xs text-muted-foreground">Uso conta registros feitos pelo time: mudanças de etapa, anotações, follow-ups e mensagens de WhatsApp. Leads que chegam sozinhos pelo webhook não contam como uso.</p>
+    </div>
   );
 }

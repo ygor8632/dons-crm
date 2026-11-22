@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Inbox, LayoutDashboard, Plug, Settings, Users } from 'lucide-react';
+import { ChartNoAxesColumn, Inbox, LayoutDashboard, Plug, Settings, Users } from 'lucide-react';
 import { AppShell, ShellCarregando, useNavegacao, type ItemNotificacao, type Secao } from '@/components/shell/app-shell';
 import { formatarMoeda } from '@/lib/marca';
 import type { Painel } from '../_lib/use-painel';
@@ -13,6 +13,7 @@ import { Equipe } from './equipe';
 import { Configuracoes, Integracoes } from './configuracoes';
 import { ConvidarDialog, FichaLeadDialog, NovoLeadDialog } from './dialogos';
 import { MotivoPerdaHost } from './acoes-lead';
+import { Relatorios } from './relatorios';
 
 /** O painel do cliente inteiro, para qualquer fonte de dados (Supabase ou a demonstração). */
 export function PainelApp({ crm, aviso }: { crm: Painel; aviso?: React.ReactNode }) {
@@ -21,6 +22,7 @@ export function PainelApp({ crm, aviso }: { crm: Painel; aviso?: React.ReactNode
   const secoes = useMemo<Secao[]>(() => [
     { id: 'visao', label: 'Visão geral', icone: LayoutDashboard, visoes: [{ id: 'resumo', label: 'Resumo' }, { id: 'atividade', label: 'Atividade' }] },
     { id: 'leads', label: 'Leads', icone: Inbox, visoes: [{ id: 'hoje', label: 'Hoje' }, { id: 'kanban', label: 'Kanban' }, { id: 'lista', label: 'Lista' }, { id: 'tarefas', label: 'Tarefas' }] },
+    { id: 'relatorios', label: 'Relatórios', icone: ChartNoAxesColumn, visoes: [{ id: 'desempenho', label: 'Desempenho' }, { id: 'metas', label: 'Metas' }, { id: 'mensal', label: 'Relatório mensal' }] },
     { id: 'equipe', label: 'Equipe', icone: Users, visoes: [{ id: 'membros', label: 'Membros' }] },
     ...(admin ? [{ id: 'integracoes', label: 'Integrações', icone: Plug, visoes: [{ id: 'webhook', label: 'Webhook' }, { id: 'importar', label: 'Importar planilha' }] }] : []),
     {
@@ -81,6 +83,7 @@ export function PainelApp({ crm, aviso }: { crm: Painel; aviso?: React.ReactNode
     >
       {nav.secao === 'visao' && <VisaoGeral crm={crm} visao={nav.visao} abrirLead={abrirLead} irPara={nav.navegar} novoLead={() => setNovoLead(true)} />}
       {nav.secao === 'leads' && <Leads crm={crm} visao={nav.visao} abrirLead={abrirLead} novoLead={() => setNovoLead(true)} irPara={nav.navegar} />}
+      {nav.secao === 'relatorios' && <Relatorios crm={crm} visao={nav.visao} />}
       {nav.secao === 'equipe' && <Equipe crm={crm} convidar={() => setConvite(true)} />}
       {nav.secao === 'integracoes' && admin && <Integracoes crm={crm} visao={nav.visao} />}
       {nav.secao === 'config' && <Configuracoes crm={crm} visao={nav.visao} />}

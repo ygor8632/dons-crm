@@ -31,6 +31,42 @@ export function diasParaVencer(valido_ate?: string | null) {
   return Math.ceil((new Date(valido_ate).getTime() - Date.now()) / 864e5);
 }
 
+/** Números de adoção de uma empresa (função saude_empresas do banco). */
+export type SaudeEmpresa = {
+  empresa_id: string;
+  usuarios: number;
+  ativos_7d: number;
+  leads_7d: number;
+  leads_7d_anterior: number;
+  abertos: number;
+  sem_proximo_passo: number;
+  atrasados: number;
+  parados: number;
+  ultima_atividade: string | null;
+};
+
+export type NivelSaude = 'risco' | 'atencao' | 'saudavel' | 'sem_uso';
+
+/** Classifica a adoção e diz por quê, em frases curtas. */
+export function avaliarSaude(s: SaudeEmpresa | undefined): { nivel: NivelSaude; motivos: string[] } {
+  if (!s || (s.usuarios === 0 && s.abertos === 0 && !s.ultima_atividade)) return { nivel: 'sem_uso', motivos: ['Ainda sem uso'] };
+  const risco: string[] = [];
+  const atencao: string[] = [];
+  const diasSemUso = s.ultima_atividade ? Math.floor((Date.now() - new Date(s.ultima_atividade).getTime()) / 864e5) : null;
+  if (s.ativos_7d === 0) risco.push(diasSemUso == null ? 'Ninguém usou ainda' : `Ninguém usou há ${diasSemUso} dias`);
+  else if (s.usuarios >= 3 && s.ativos_7d / s.usuarios < 0.5) atencao.push(`Só ${s.ativos_7d} de ${s.usuarios} pessoas usaram na semana`);
+  if (s.leads_7d_anterior >= 4 && s.leads_7d <= s.leads_7d_anterior * 0.5) risco.push(`Leads caíram de ${s.leads_7d_anterior} para ${s.leads_7d} na semana`);
+  const semPasso = s.abertos ? s.sem_proximo_passo / s.abertos : 0;
+  if (s.abertos >= 5 && semPasso >= 0.6) risco.push(`${Math.round(semPasso * 100)}% dos leads sem próximo passo`);
+  else if (s.abertos >= 5 && semPasso >= 0.35) atencao.push(`${Math.round(semPasso * 100)}% dos leads sem próximo passo`);
+  if (s.atrasados >= 10) risco.push(`${s.atrasados} follow-ups atrasados`);
+  else if (s.atrasados >= 3) atencao.push(`${s.atrasados} follow-ups atrasados`);
+  if (s.abertos >= 5 && s.parados / s.abertos >= 0.4) atencao.push(`${s.parados} leads parados`);
+  if (risco.length) return { nivel: 'risco', motivos: [...risco, ...atencao] };
+  if (atencao.length) return { nivel: 'atencao', motivos: atencao };
+  return { nivel: 'saudavel', motivos: ['Time usando e funil em dia'] };
+}
+
 /** Estado e ações do painel do superadmin. Mesmas consultas da versão anterior. */
 export function useDashboard() {
   const router = useRouter();
@@ -42,6 +78,7 @@ export function useDashboard() {
   const [empresas, setEmpresas] = useState<EmpresaAdmin[]>([]);
   const [perfis, setPerfis] = useState<{ id: string; empresa_id: string | null }[]>([]);
   const [totalLeads, setTotalLeads] = useState(0);
+  const [saude, setSaude] = useState<SaudeEmpresa[]>([]);
 
   const carregar = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -55,11 +92,14 @@ export function useDashboard() {
     setEmail(session.user.email ?? null);
     setMeuId(session.user.id);
     setNome((meu?.nome as string) || '');
-    const [{ data: emps }, { data: pfs }, { count }] = await Promise.all([
+    const [{ data: emps }, { data: pfs }, { count }, { data: sde, error: erroSaude }] = await Promise.all([
       supabase.from('empresas').select('*').order('created_at', { ascending: false }),
       supabase.from('perfis').select('id, empresa_id'),
       supabase.from('leads').select('*', { count: 'exact', head: true }),
+      supabase.rpc('saude_empresas'),
     ]);
+    if (erroSaude) console.error('Saúde dos clientes:', erroSaude.message);
+    setSaude((sde as SaudeEmpresa[]) || []);
     setEmpresas((emps as EmpresaAdmin[]) || []);
     setPerfis(pfs || []);
     setTotalLeads(count ?? 0);
@@ -123,7 +163,7 @@ export function useDashboard() {
 
   const membros = useCallback((empresaId: string) => perfis.filter((p) => p.empresa_id === empresaId).length, [perfis]);
 
-  return { carregando, email, nome, empresas, perfis, totalLeads, sair, alternarStatus, criarEmpresa, membros, salvarNome };
+  return { carregando, email, nome, empresas, perfis, totalLeads, saude, sair, alternarStatus, criarEmpresa, membros, salvarNome };
 }
 
 export type Dashboard = ReturnType<typeof useDashboard>;

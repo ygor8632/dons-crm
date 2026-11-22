@@ -1,14 +1,15 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Building2, CalendarClock, LayoutDashboard, Settings } from 'lucide-react';
+import { Building2, CalendarClock, HeartPulse, LayoutDashboard, Settings } from 'lucide-react';
 import { AppShell, ShellCarregando, useNavegacao, type ItemNotificacao, type Secao } from '@/components/shell/app-shell';
 import { diasParaVencer, rotuloPlano, useDashboard, type EmpresaAdmin } from './_lib/use-dashboard';
-import { Clientes, ConfigAdmin, NovaEmpresaDialog, Planos, SuspenderDialog, VisaoGeralAdmin } from './_components/telas';
+import { Clientes, ConfigAdmin, NovaEmpresaDialog, Planos, Saude, SuspenderDialog, VisaoGeralAdmin } from './_components/telas';
 
 const SECOES: Secao[] = [
   { id: 'visao', label: 'Visão geral', icone: LayoutDashboard, visoes: [{ id: 'resumo', label: 'Resumo' }] },
   { id: 'clientes', label: 'Clientes', icone: Building2, visoes: [{ id: 'todos', label: 'Todos' }, { id: 'ativos', label: 'Ativos' }, { id: 'suspensos', label: 'Suspensos' }] },
+  { id: 'saude', label: 'Saúde dos clientes', icone: HeartPulse, visoes: [{ id: 'adocao', label: 'Adoção' }] },
   { id: 'planos', label: 'Planos e validade', icone: CalendarClock, visoes: [{ id: 'vencendo', label: 'Vencendo' }, { id: 'todos', label: 'Todos' }] },
   { id: 'config', label: 'Configurações', icone: Settings, visoes: [{ id: 'conta', label: 'Conta' }] },
 ];
@@ -58,6 +59,7 @@ export default function SuperAdminDashboard() {
     >
       {nav.secao === 'visao' && <VisaoGeralAdmin {...base} irPara={nav.navegar} />}
       {nav.secao === 'clientes' && <Clientes {...base} visao={nav.visao} />}
+      {nav.secao === 'saude' && <Saude dash={dash} />}
       {nav.secao === 'planos' && <Planos {...base} visao={nav.visao} />}
       {nav.secao === 'config' && <ConfigAdmin dash={dash} />}
 

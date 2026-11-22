@@ -79,3 +79,9 @@ export type Empresa = {
   cor_fundo_logo?: string | null;
   fundo_url?: string | null;
 };
+
+/** Meta mensal de vendas: de um vendedor ou da empresa toda (usuario_id nulo). mes = AAAA-MM-01. */
+export type Meta = { id: string; empresa_id?: string; usuario_id: string | null; mes: string; valor: number | null; quantidade: number | null };
+
+/** Mudança de etapa (gravada pelo banco a cada troca). */
+export type Movimento = { lead_id: string; de_etapa_id: string | null; para_etapa_id: string | null; created_at: string };

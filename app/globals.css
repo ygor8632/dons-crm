@@ -404,3 +404,11 @@
 @media (prefers-reduced-motion: reduce) { .entra { animation: none; } }
 html { scroll-behavior: smooth; scroll-padding-top: 96px; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* Relatório mensal: na impressão só a cópia do relatório (portal no body) aparece, com as cores */
+@media print {
+  @page { size: A4; margin: 12mm; }
+  html, body { background: #fff !important; height: auto !important; overflow: visible !important; }
+  body > *:not(#relatorio-impressao) { display: none !important; }
+  #relatorio-impressao { display: block !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

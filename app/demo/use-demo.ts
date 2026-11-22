@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { prepararImagem, type TipoImagem } from '@/lib/marca-storage';
 import type { Painel } from '../painel/_lib/use-painel';
-import type { Anotacao, Atividade, Empresa, Etapa, Lead, LinhaImportacao, Membro, ModeloMensagem, Papel, Tarefa, TipoAtividade } from '../painel/_lib/tipos';
+import type { Anotacao, Atividade, Empresa, Etapa, Lead, LinhaImportacao, Membro, Meta, ModeloMensagem, Movimento, Papel, Tarefa, TipoAtividade } from '../painel/_lib/tipos';
 import { emAberto, etapaFinal, proximaTarefa } from '../painel/_lib/util';
 import { avisarComProximoPasso, emDias } from '../painel/_components/proximo-passo';
 
@@ -74,16 +74,63 @@ function leadsIniciais(): Lead[] {
     vendedor: resp ? { nome: nomeDe(resp) } : null,
     created_at: dias(-d),
     situacao: etapa === 'e4' ? 'ganho' : 'aberto',
+    fechado_em: etapa === 'e4' ? dias(-Math.floor(d * 0.3)) : null,
     // Alguns leads sem atividade há dias, para aparecerem como "parados"
-    etapa_desde: dias(-d),
+    etapa_desde: etapa === 'e4' ? dias(-Math.floor(d * 0.3)) : dias(-Math.floor(d * 0.4)),
     ultima_atividade_em: dias(-Math.min(d, [0, 1, 4].includes(i) ? 0 : d)),
   }));
 }
 
+// Negócios já fechados nos meses anteriores: [nome, origem, valor, responsável, criado há, fechado há, resultado, motivo]
+const HISTORICO: [string, string, number, string, number, number, 'ganho' | 'perdido', string | null][] = [
+  ['Clínica Sorriso Feliz', 'Google Ads', 9600, 'demo-bia', 70, 52, 'ganho', null],
+  ['Mercado Bom Preço', 'Indicação', 21000, 'demo-carlos', 64, 40, 'ganho', null],
+  ['Escola de Idiomas Fluent', 'Site', 6200, EU, 58, 37, 'ganho', null],
+  ['Barbearia Corte Fino', 'Instagram', 1800, 'demo-carlos', 50, 41, 'perdido', 'Sem resposta'],
+  ['Transportadora Via Sul', 'Google Ads', 38000, 'demo-bia', 66, 35, 'perdido', 'Escolheu concorrente'],
+  ['Doceria Açúcar Mascavo', 'WhatsApp', 2400, 'demo-carlos', 46, 38, 'perdido', 'Preço'],
+  ['Consultório Dr. Ramos', 'Indicação', 7300, 'demo-bia', 98, 75, 'ganho', null],
+  ['Papelaria Ponto Final', 'Facebook', 1300, 'demo-carlos', 92, 80, 'perdido', 'Preço'],
+  ['Clínica Veterinária Amigo', 'Site', 11200, 'demo-carlos', 34, 12, 'ganho', null],
+  ['Eventos Celebrar', 'Instagram', 4800, EU, 27, 9, 'perdido', 'Não era o momento'],
+];
+
 function leadsPerdidos(): Lead[] {
   return [
+    ...HISTORICO.map(([nome, origem, valor, resp, criado, fechado, resultado, motivo], i): Lead => ({
+      id: `h${i + 1}`, empresa_id: EMPRESA_ID, nome, email: null, telefone: `1197${String(2000000 + i * 51713).slice(0, 7)}`, origem,
+      etapa_id: resultado === 'ganho' ? 'e4' : i % 2 ? 'e3' : 'e2', valor, vendedor_id: resp, vendedor: { nome: nomeDe(resp) },
+      created_at: dias(-criado), situacao: resultado, motivo_perda: motivo, fechado_em: dias(-fechado), etapa_desde: dias(-fechado), ultima_atividade_em: dias(-fechado),
+    })),
     { id: 'l90', empresa_id: EMPRESA_ID, nome: 'Buffet Festa Boa', email: 'contato@festaboa.exemplo', telefone: '11987001122', origem: 'Instagram', etapa_id: 'e2', valor: 5200, vendedor_id: 'demo-bia', vendedor: { nome: 'Beatriz Souza' }, created_at: dias(-20), situacao: 'perdido', motivo_perda: 'Preço', fechado_em: dias(-6), etapa_desde: dias(-12), ultima_atividade_em: dias(-6) },
   ];
+}
+
+/** Caminho de cada lead pelas etapas, do cadastro até a etapa atual (o banco grava isso por trigger). */
+function movimentosIniciais(leads: Lead[]): Movimento[] {
+  const ordem = (id?: string | null) => ETAPAS.find((e) => e.id === id)?.ordem ?? 1;
+  return leads.flatMap((l) => {
+    const passos = ETAPAS.filter((e) => e.ordem <= ordem(l.etapa_id));
+    const ini = new Date(l.created_at).getTime();
+    const fim = new Date(l.etapa_desde || l.created_at).getTime();
+    return passos.map((e, i) => ({
+      lead_id: l.id,
+      de_etapa_id: i === 0 ? null : passos[i - 1].id,
+      para_etapa_id: e.id,
+      created_at: new Date(i === passos.length - 1 ? fim : ini + ((fim - ini) * i) / Math.max(passos.length - 1, 1)).toISOString(),
+    }));
+  }).sort((a, b) => a.created_at.localeCompare(b.created_at));
+}
+
+const mesISO = (delta = 0) => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() + delta); return d.toISOString().slice(0, 8) + '01'; };
+
+function metasIniciais(): Meta[] {
+  return [0, -1].flatMap((m) => [
+    { id: `mt-e${m}`, usuario_id: null, mes: mesISO(m), valor: 80000, quantidade: 6 },
+    { id: `mt-a${m}`, usuario_id: EU, mes: mesISO(m), valor: 15000, quantidade: 1 },
+    { id: `mt-c${m}`, usuario_id: 'demo-carlos', mes: mesISO(m), valor: 25000, quantidade: 3 },
+    { id: `mt-b${m}`, usuario_id: 'demo-bia', mes: mesISO(m), valor: 40000, quantidade: 2 },
+  ]);
 }
 
 function modelosIniciais(): ModeloMensagem[] {
@@ -137,6 +184,8 @@ export function useDemoPainel() {
   const [imagens, setImagens] = useState<{ logo: string | null; fundo: string | null }>({ logo: null, fundo: null });
   const [etapas, setEtapas] = useState<Etapa[]>(ETAPAS);
   const [todosLeads, setLeads] = useState<Lead[]>(() => [...leadsIniciais(), ...leadsPerdidos()]);
+  const [todosMovimentos, setMovimentos] = useState<Movimento[]>(() => movimentosIniciais([...leadsIniciais(), ...leadsPerdidos()]));
+  const [metas, setMetas] = useState<Meta[]>(metasIniciais);
   const [modelos, setModelos] = useState<ModeloMensagem[]>(modelosIniciais);
   const atividades = useRef<Record<string, Atividade[]>>(atividadesIniciais());
   const [equipe, setEquipe] = useState<Membro[]>(EQUIPE);
@@ -155,6 +204,12 @@ export function useDemoPainel() {
     () => (papel === 'admin' ? todosLeads : todosLeads.filter((l) => !l.vendedor_id || l.vendedor_id === userId)),
     [todosLeads, papel, userId],
   );
+  // Como o RLS: movimentos só dos leads visíveis
+  const movimentos = useMemo(() => {
+    if (papel === 'admin') return todosMovimentos;
+    const visiveis = new Set(leads.map((l) => l.id));
+    return todosMovimentos.filter((m) => visiveis.has(m.lead_id));
+  }, [todosMovimentos, leads, papel]);
   const tarefas = useMemo(
     () => todasTarefas.filter((t) => leads.some((l) => l.id === t.lead_id)),
     [todasTarefas, leads],
@@ -188,6 +243,10 @@ export function useDemoPainel() {
 
   const gravarLead = useCallback((id: string, patch: Partial<Lead>) => {
     const agora = new Date().toISOString();
+    if (patch.etapa_id) {
+      const atual = todosLeads.find((l) => l.id === id);
+      if (atual && atual.etapa_id !== patch.etapa_id) setMovimentos((prev) => [...prev, { lead_id: id, de_etapa_id: atual.etapa_id ?? null, para_etapa_id: patch.etapa_id!, created_at: agora }]);
+    }
     setLeads((prev) => prev.map((l) => {
       if (l.id !== id) return l;
       const novo: Lead = { ...l, ...patch, ultima_atividade_em: agora };
@@ -195,6 +254,15 @@ export function useDemoPainel() {
       if (patch.situacao && patch.situacao !== l.situacao) { novo.fechado_em = patch.situacao === 'aberto' ? null : agora; if (patch.situacao === 'aberto') novo.motivo_perda = null; }
       return novo;
     }));
+  }, [todosLeads]);
+
+  const salvarMeta = useCallback(async (m: { usuario_id: string | null; mes: string; valor: number | null; quantidade: number | null }) => {
+    setMetas((prev) => {
+      const resto = prev.filter((x) => !(x.mes === m.mes && x.usuario_id === m.usuario_id));
+      if (m.valor == null && m.quantidade == null) return resto;
+      return [{ id: novoId('mt'), ...m }, ...resto];
+    });
+    return true;
   }, []);
 
   const moverLead = useCallback(async (id: string, etapaId: string) => {
@@ -403,12 +471,14 @@ export function useDemoPainel() {
     equipe,
     tarefas,
     modelos,
+    metas,
+    movimentos,
     nomeUsuario: equipe.find((m) => m.id === userId)?.nome || nomeDe(userId) || 'Você',
     recarregar: async () => {},
     sair,
     criarLead, moverLead, fecharLead, reabrirLead, salvarProbabilidadeLead, registrarWhatsApp, importarLeads, agendar,
     carregarFicha, adicionarAnotacao, apagarAnotacao, criarTarefa, alternarTarefa, apagarTarefa, reagendarTarefas,
-    salvarEtapa, salvarModelo, apagarModelo,
+    salvarEtapa, salvarModelo, apagarModelo, salvarMeta,
     salvarMarca, enviarMarca, removerMarca, adicionarEtapa, removerEtapa, convidar, mudarPapel, removerMembro, salvarNome,
   };
 

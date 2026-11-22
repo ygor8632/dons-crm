@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { createClient } from '@/utils/supabase/client';
 import { apagarImagem, enviarImagem, resolverImagens, type TipoImagem } from '@/lib/marca-storage';
-import type { Anotacao, Atividade, Empresa, Etapa, Lead, LinhaImportacao, Membro, ModeloMensagem, Papel, Tarefa, TipoAtividade } from './tipos';
+import type { Anotacao, Atividade, Empresa, Etapa, Lead, LinhaImportacao, Membro, Meta, ModeloMensagem, Movimento, Papel, Tarefa, TipoAtividade } from './tipos';
 import { emAberto, etapaFinal, proximaTarefa } from './util';
 import { avisarComProximoPasso, emDias } from '../_components/proximo-passo';
 
@@ -27,6 +27,8 @@ export function usePainel() {
   const [equipe, setEquipe] = useState<Membro[]>([]);
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [modelos, setModelos] = useState<ModeloMensagem[]>([]);
+  const [metas, setMetas] = useState<Meta[]>([]);
+  const [movimentos, setMovimentos] = useState<Movimento[]>([]);
   // URLs exibíveis do logo e do fundo (links assinados do bucket privado)
   const [imagens, setImagens] = useState<{ logo: string | null; fundo: string | null }>({ logo: null, fundo: null });
   const cacheImagens = useRef(new Map<string, string | null>());
@@ -55,13 +57,16 @@ export function usePainel() {
     const empresaId = perfil.empresa_id as string;
     setPapel((perfil.role as Papel) || 'vendedor');
 
-    const [{ data: emp }, { data: etp }, { data: lds }, { data: eqp }, { data: trf }, { data: mdl }] = await Promise.all([
+    const [{ data: emp }, { data: etp }, { data: lds }, { data: eqp }, { data: trf }, { data: mdl }, { data: mts }, { data: mvs }] = await Promise.all([
       supabase.from('empresas').select('*').eq('id', empresaId).single(),
       supabase.from('etapas_funil').select('*').eq('empresa_id', empresaId).order('ordem', { ascending: true }),
       supabase.from('leads').select('*, vendedor:perfis(nome)').eq('empresa_id', empresaId).order('created_at', { ascending: false }),
       supabase.from('perfis').select('*').eq('empresa_id', empresaId),
       supabase.from('tarefas').select('*').eq('empresa_id', empresaId).order('data_vencimento', { ascending: true }),
       supabase.from('modelos_mensagem').select('*').eq('empresa_id', empresaId).order('ordem', { ascending: true }),
+      supabase.from('metas').select('*').eq('empresa_id', empresaId).order('mes', { ascending: false }),
+      // O RLS limita aos leads visíveis para quem está logado
+      supabase.from('lead_movimentos').select('lead_id, de_etapa_id, para_etapa_id, created_at').order('created_at', { ascending: true }).limit(20000),
     ]);
 
     if (emp && !emp.ativo) {
@@ -77,6 +82,8 @@ export function usePainel() {
     setEquipe((eqp as Membro[]) || []);
     setTarefas((trf as Tarefa[]) || []);
     setModelos((mdl as ModeloMensagem[]) || []);
+    setMetas(((mts as Meta[]) || []).map((m) => ({ ...m, valor: m.valor == null ? null : Number(m.valor) })));
+    setMovimentos((mvs as Movimento[]) || []);
     setCarregando(false);
   }, [supabase, router, atualizarImagens]);
 
@@ -127,8 +134,11 @@ export function usePainel() {
     if (!anterior) return false;
     const agora = new Date().toISOString();
     const local: Partial<Lead> = { ...patch, ultima_atividade_em: agora };
-    if (patch.etapa_id && patch.etapa_id !== anterior.etapa_id) local.etapa_desde = agora;
+    const mudouEtapa = !!patch.etapa_id && patch.etapa_id !== anterior.etapa_id;
+    if (mudouEtapa) local.etapa_desde = agora;
     setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, ...local } : l)));
+    // Espelho local do movimento que o banco grava por trigger (relatórios atualizam na hora)
+    if (mudouEtapa) setMovimentos((prev) => [...prev, { lead_id: leadId, de_etapa_id: anterior.etapa_id ?? null, para_etapa_id: patch.etapa_id!, created_at: agora }]);
     const { error } = await supabase.from('leads').update(patch).eq('id', leadId);
     if (error) {
       setLeads((prev) => prev.map((l) => (l.id === leadId ? anterior : l)));
@@ -406,6 +416,29 @@ export function usePainel() {
   }, [supabase, carregar]);
 
   /** O próprio usuário define como quer ser chamado (o RLS permite editar o próprio perfil). */
+  /* ---------- Metas ---------- */
+
+  const salvarMeta = useCallback(async (m: { usuario_id: string | null; mes: string; valor: number | null; quantidade: number | null }) => {
+    if (!empresa) return false;
+    const existente = metas.find((x) => x.mes === m.mes && x.usuario_id === m.usuario_id);
+    if (m.valor == null && m.quantidade == null) {
+      if (!existente) return true;
+      const { error } = await supabase.from('metas').delete().eq('id', existente.id);
+      if (error) { toast.error('Não foi possível remover a meta.'); return false; }
+      setMetas((prev) => prev.filter((x) => x.id !== existente.id));
+      return true;
+    }
+    const corpo = { valor: m.valor, quantidade: m.quantidade };
+    const consulta = existente
+      ? supabase.from('metas').update(corpo).eq('id', existente.id).select().single()
+      : supabase.from('metas').insert([{ ...corpo, empresa_id: empresa.id, usuario_id: m.usuario_id, mes: m.mes }]).select().single();
+    const { data, error } = await consulta;
+    if (error) { toast.error('Não foi possível salvar a meta.'); return false; }
+    const salva = { ...(data as Meta), valor: data.valor == null ? null : Number(data.valor) };
+    setMetas((prev) => (existente ? prev.map((x) => (x.id === existente.id ? salva : x)) : [salva, ...prev]));
+    return true;
+  }, [empresa, metas, supabase]);
+
   const salvarNome = useCallback(async (nome: string) => {
     if (!userId) return false;
     const { error } = await supabase.from('perfis').update({ nome }).eq('id', userId);
@@ -430,11 +463,11 @@ export function usePainel() {
   }, [equipe, userId, userEmail]);
 
   return {
-    carregando, userId, userEmail, papel, empresa, imagens, etapas, leads, equipe, tarefas, modelos, nomeUsuario,
+    carregando, userId, userEmail, papel, empresa, imagens, etapas, leads, equipe, tarefas, modelos, metas, movimentos, nomeUsuario,
     recarregar: carregar, sair,
     criarLead, moverLead, fecharLead, reabrirLead, salvarProbabilidadeLead, registrarWhatsApp, importarLeads, agendar,
     carregarFicha, adicionarAnotacao, apagarAnotacao, criarTarefa, alternarTarefa, apagarTarefa, reagendarTarefas,
-    salvarEtapa, salvarModelo, apagarModelo,
+    salvarEtapa, salvarModelo, apagarModelo, salvarMeta,
     salvarMarca, enviarMarca, removerMarca, adicionarEtapa, removerEtapa, convidar, mudarPapel, removerMembro, salvarNome,
   };
 }
