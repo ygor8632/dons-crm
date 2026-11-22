@@ -1,11 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY! // Garantido que não tem NEXT_PUBLIC_ e está no .gitignore
-);
+import { getSupabaseAdmin } from '@/utils/supabase/admin';
 
 // CORS para chamadas de navegador (se necessário)
 const corsHeaders = {
@@ -36,6 +31,8 @@ const leadSchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    const supabaseAdmin = getSupabaseAdmin();
+
     // 1. Extração Segura do Token (Bearer ou Query)
     let token = new URL(request.url).searchParams.get('token');
     if (!token) {

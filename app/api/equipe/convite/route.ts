@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createClient } from '@/utils/supabase/server';
-import { supabaseAdmin } from '@/utils/supabase/admin';
+import { getSupabaseAdmin } from '@/utils/supabase/admin';
 
 const conviteSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(150),
@@ -13,6 +13,7 @@ export async function POST(request: Request) {
   try {
     // 1. Quem está chamando? (sessão validada no servidor do Supabase)
     const supabase = await createClient();
+    const supabaseAdmin = getSupabaseAdmin();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
