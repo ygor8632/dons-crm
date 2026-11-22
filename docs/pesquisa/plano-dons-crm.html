@@ -1,0 +1,409 @@
+<title>Plano Dons CRM 2027</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@600;700&display=swap">
+<style>
+/* Layout: coluna de leitura de 880px; cada iniciativa é uma linha de decisão (texto à esquerda, votos à direita), agrupadas por frente. Cores do próprio Dons CRM. */
+:root {
+  --bg: #e7e0d6;
+  --sheet: #f6f2ec;
+  --line: #d9d0c4;
+  --fg: #1b1716;
+  --muted: #5c524c;
+  --brand: #cd4738;          /* coral do Dons ajustado para texto (4,6:1) */
+  --brand-soft: #f3dcd6;
+  --ok: #1b5e36; --ok-bg: #d3e8da;
+  --talk: #6e4f00; --talk-bg: #f1e3bb;
+  --no: #9b2318; --no-bg: #f0d4d0;
+  --chip: #ebe4da;
+  --display: "Inter Tight", "Inter", system-ui, sans-serif;
+  --body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #171210; --sheet: #221b18; --line: #3a302b; --fg: #f4efe9; --muted: #b9aea6;
+  --brand: #ef7e6f; --brand-soft: #3b2420; --ok: #8fdcaa; --ok-bg: #1d3426; --talk: #f0cd6e; --talk-bg: #3a3017;
+  --no: #f4a397; --no-bg: #3d211d; --chip: #2d2522; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #171210; --sheet: #221b18; --line: #3a302b; --fg: #f4efe9; --muted: #b9aea6;
+  --brand: #ef7e6f; --brand-soft: #3b2420; --ok: #8fdcaa; --ok-bg: #1d3426; --talk: #f0cd6e; --talk-bg: #3a3017;
+  --no: #f4a397; --no-bg: #3d211d; --chip: #2d2522; color-scheme: dark }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.6 var(--body); margin: 0; }
+.wrap { max-width: 880px; margin: 0 auto; padding-block: 40px 96px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; letter-spacing: -0.02em; margin: 0; }
+h1 { font-size: clamp(30px, 5vw, 44px); line-height: 1.05; }
+h2 { font-size: 24px; line-height: 1.2; }
+h3 { font-size: 17px; line-height: 1.3; letter-spacing: -0.01em; }
+p { margin: 0; }
+a { color: var(--brand); text-underline-offset: 3px; }
+:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
+.muted { color: var(--muted); }
+.tabular { font-variant-numeric: tabular-nums; }
+
+header.capa { display: grid; gap: 14px; padding-bottom: 28px; border-bottom: 1px solid var(--line); }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: var(--muted); }
+.tese { font-size: 18px; line-height: 1.55; max-width: 64ch; }
+
+.status { margin-top: 18px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 13px; }
+.placar { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; }
+.pill.ok { background: var(--ok-bg); color: var(--ok); }
+.pill.talk { background: var(--talk-bg); color: var(--talk); }
+.pill.no { background: var(--no-bg); color: var(--no); }
+.pill.neutro { background: var(--chip); color: var(--muted); }
+.aviso { background: var(--sheet); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; font-size: 13px; }
+
+section { margin-top: 48px; }
+.sec-head { display: grid; gap: 6px; margin-bottom: 16px; }
+
+.achados { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.achado { background: var(--sheet); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 6px; align-content: start; }
+.achado .num { font-family: var(--display); font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+.achado p { font-size: 14px; }
+.achado .fonte { font-size: 12px; color: var(--muted); }
+
+.frente { margin-top: 36px; }
+.frente-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; padding-bottom: 10px; border-bottom: 2px solid var(--fg); }
+.frente-head .quando { font-size: 13px; color: var(--muted); }
+.itens { list-style: none; margin: 0; padding: 0; }
+.item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px 24px; padding: 18px 0; border-bottom: 1px solid var(--line); }
+.item-corpo { display: grid; gap: 6px; min-width: 0; }
+.item-topo { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.cod { font: 600 12px/1 var(--body); color: var(--brand); letter-spacing: 0.04em; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { background: var(--chip); color: var(--muted); border-radius: 6px; padding: 1px 8px; font-size: 12px; font-weight: 500; }
+.tag.alto { background: var(--brand-soft); color: var(--brand); }
+.porque { font-size: 13px; color: var(--muted); }
+.porque b { color: var(--fg); font-weight: 600; }
+
+.voto { display: grid; gap: 8px; justify-items: end; align-content: start; min-width: 0; }
+.botoes { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; background: var(--sheet); }
+.botoes button { appearance: none; border: 0; background: transparent; color: var(--muted); font: 600 12px/1 var(--body); padding: 8px 11px; border-radius: 999px; cursor: pointer; min-height: 32px; transition: background-color .15s ease, color .15s ease; }
+.botoes button:hover:not(:disabled) { color: var(--fg); }
+.botoes button[aria-pressed="true"][data-v="aprovar"] { background: var(--ok-bg); color: var(--ok); }
+.botoes button[aria-pressed="true"][data-v="discutir"] { background: var(--talk-bg); color: var(--talk); }
+.botoes button[aria-pressed="true"][data-v="recusar"] { background: var(--no-bg); color: var(--no); }
+.botoes button:disabled { cursor: not-allowed; opacity: .55; }
+.contagem { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; font-size: 12px; }
+.quem { font-size: 12px; color: var(--muted); text-align: right; max-width: 260px; }
+.nota-toggle { appearance: none; border: 0; background: none; color: var(--muted); font: 500 12px var(--body); cursor: pointer; padding: 4px 0; text-decoration: underline; text-underline-offset: 3px; min-height: 24px; }
+.nota { grid-column: 1 / -1; display: grid; gap: 6px; }
+.nota textarea { width: 100%; min-height: 64px; resize: vertical; background: var(--sheet); color: var(--fg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font: 14px/1.5 var(--body); }
+.nota .salvo { font-size: 12px; color: var(--muted); }
+.notas-time { grid-column: 1 / -1; display: grid; gap: 4px; font-size: 13px; }
+.notas-time p { background: var(--sheet); border-left: 0; border-radius: 8px; padding: 6px 10px; }
+
+.brainstorm { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
+.ideia { background: var(--sheet); border: 1px dashed var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 6px; align-content: start; }
+.ideia h3 { font-size: 15px; }
+.ideia p { font-size: 14px; color: var(--muted); }
+
+.headlines { display: grid; gap: 10px; }
+.headline { background: var(--sheet); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; gap: 4px; }
+.headline .h { font-family: var(--display); font-weight: 700; font-size: 19px; letter-spacing: -0.015em; }
+.headline .s { font-size: 14px; color: var(--muted); }
+
+.perguntas { counter-reset: q; display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.perguntas li { background: var(--sheet); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; gap: 4px; }
+.perguntas li b { font-weight: 600; }
+
+footer { margin-top: 56px; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 18px; display: grid; gap: 6px; }
+
+@media (max-width: 640px) {
+  .item { grid-template-columns: 1fr; }
+  .voto { justify-items: start; }
+  .contagem { justify-content: flex-start; }
+  .quem { text-align: left; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="capa">
+    <div class="meta"><span>Dons CRM · plano para aprovação</span><span class="tabular">Pesquisa coletada em 22/11/2026</span><span>Base: relatório "Pesquisa de mercado de CRMs"</span></div>
+    <h1>O que construir no Dons CRM, e em que ordem</h1>
+    <p class="tese">A pesquisa mostra um espaço que nenhum concorrente disputa: <b>CRM com a marca da empresa, implantado por gente</b>. O problema medido nas PMEs não é falta de IA, e sim venda que acontece no WhatsApp e não fica registrada. O plano ataca isso primeiro, depois transforma a consultoria em produto e só então entra nos itens que o mercado já cobra caro.</p>
+    <div class="status" id="status">
+      <span class="aviso" id="aviso">Carregando votos…</span>
+      <span class="placar" id="placar-geral" aria-live="polite"></span>
+    </div>
+  </header>
+
+  <section aria-labelledby="t-achados">
+    <div class="sec-head">
+      <h2 id="t-achados">O que a pesquisa encontrou</h2>
+      <p class="muted">Os números que sustentam a ordem do plano. Os rótulos de evidência e as fontes completas estão no relatório.</p>
+    </div>
+    <div class="achados">
+      <div class="achado"><span class="num tabular">78%</span><p>dos times de vendas no Brasil negociam pelo WhatsApp todo dia, mas só <b>28%</b> o integram a um CRM e <b>59%</b> registram em planilha ou "cada um do seu jeito".</p><span class="fonte">RD Station, Panorama 2026 (n=1.445)</span></div>
+      <div class="achado"><span class="num">0</span><p>concorrentes analisados abrem a home com marca própria + implantação. Só a Ploomes vende white label, como add-on sob consulta.</p><span class="fonte">Sites de 11 CRMs, 22/11/2026</span></div>
+      <div class="achado"><span class="num tabular">R$ 59–269</span><p>por usuário/mês nos brasileiros, com mínimo de 4 usuários nos planos do meio. WhatsApp oficial e IA são add-ons pagos.</p><span class="fonte">Páginas de preço de RD, Agendor, Ploomes, PipeRun, Nectar</span></div>
+      <div class="achado"><span class="num">~7</span><p>é a nota de RD Station e Kommo no Reclame Aqui. As queixas: cobrança após cancelar, suporte lento, falhas no WhatsApp e consultoria vendida e não prestada.</p><span class="fonte">Reclame Aqui</span></div>
+      <div class="achado"><span class="num">2 CTAs</span><p>em todo site: um "comece sozinho" e um "fale com alguém". Ninguém oferece garantia de devolução. Todos os grandes brasileiros mostram ao menos um preço.</p><span class="fonte">Homes e páginas de preço</span></div>
+      <div class="achado"><span class="num tabular">US$ 497</span><p>por mês é o que o GoHighLevel cobra pelo app com a marca da agência. Um app instalável (PWA) com a marca de cada empresa custa quase nada para o Dons.</p><span class="fonte">gohighlevel.com/pricing</span></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="t-plano">
+    <div class="sec-head">
+      <h2 id="t-plano">Iniciativas para aprovar</h2>
+      <p class="muted">Vote em cada uma: <b>Aprovar</b>, <b>Discutir</b> ou <b>Recusar</b>. Cada pessoa tem o seu voto e pode deixar um comentário; todos veem o placar. Esforço: P até 1 semana, M 1 a 3 semanas, G mais de 3 semanas.</p>
+    </div>
+    <div id="frentes"></div>
+  </section>
+
+  <section aria-labelledby="t-site">
+    <div class="sec-head">
+      <h2 id="t-site">Opções de título para a home</h2>
+      <p class="muted">O mercado abre com um resultado, não com um atributo. O título atual é "CRM de vendas com a marca da sua empresa". Opções para testar, com a marca indo para a linha de apoio:</p>
+    </div>
+    <div class="headlines">
+      <div class="headline"><span class="h">Seu time vendendo pelo WhatsApp sem perder nenhum lead</span><span class="s">No CRM com a marca da sua empresa, configurado e treinado pela nossa equipe.</span></div>
+      <div class="headline"><span class="h">Funil organizado em uma semana, no sistema da sua empresa</span><span class="s">A gente monta o funil, importa sua planilha e treina o time. Vale só se o prazo de implantação for real na operação.</span></div>
+      <div class="headline"><span class="h">O CRM que o seu time usa, porque é o da sua empresa</span><span class="s">Logo, cores e funil da sua operação. Implantação feita por gente, não por manual.</span></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="t-brain">
+    <div class="sec-head">
+      <h2 id="t-brain">Brainstorm: ideias em aberto</h2>
+      <p class="muted">Ainda não são propostas. Se alguma fizer sentido, vira iniciativa na próxima rodada.</p>
+    </div>
+    <div class="brainstorm">
+      <div class="ideia"><h3>Garantia de adoção</h3><p>"Se em 30 dias o time não estiver usando, você não paga o mês." Inédito no segmento; o painel de saúde de adoção mede isso.</p></div>
+      <div class="ideia"><h3>Resumo das 8h no WhatsApp</h3><p>Cada vendedor recebe a lista do dia: atrasados, retornos de hoje e negócios parados, com link direto para a tela "Hoje".</p></div>
+      <div class="ideia"><h3>Pacotes por segmento</h3><p>Clínicas, imobiliárias, escolas, serviços B2B: funil, campos, motivos de perda e mensagens de WhatsApp prontos. Vira linha comercial da consultoria.</p></div>
+      <div class="ideia"><h3>Modo reunião de pipeline</h3><p>Uma visão para a reunião semanal: só o que mudou desde a última, negócios parados e o que cada vendedor promete para a semana.</p></div>
+      <div class="ideia"><h3>Placar da semana</h3><p>Ranking opcional por ganhos, atividades ou retornos em dia. Ligado por empresa, porque nem todo time quer competição.</p></div>
+      <div class="ideia"><h3>Assistente com o nome da empresa</h3><p>Quando a IA chegar, ela leva o nome e a marca do cliente ("Assistente Studio Fit"), mantendo a lógica do white label.</p></div>
+      <div class="ideia"><h3>Vendas que vieram do WhatsApp</h3><p>Relatório que mostra quanto do faturamento passou por conversa no WhatsApp. Dá ao dono um número que hoje ele não tem.</p></div>
+      <div class="ideia"><h3>Tour guiado na demonstração</h3><p>Três passos na demo pública: mover um lead, agendar retorno e trocar a cor. Termina em "Falar com um consultor".</p></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="t-decisoes">
+    <div class="sec-head">
+      <h2 id="t-decisoes">Decisões de negócio antes de começar</h2>
+      <p class="muted">Não dependem de código, mas mudam o que se constrói e como se vende.</p>
+    </div>
+    <ol class="perguntas">
+      <li><b>Preço: por empresa ou por usuário?</b><span class="muted">A pesquisa favorece por empresa, com faixas de usuários e implantação inclusa, contra o mínimo de 4 assentos dos concorrentes. Qual o "a partir de" que vocês publicariam?</span></li>
+      <li><b>Contato comercial do botão "Falar com um consultor"</b><span class="muted">WhatsApp, e-mail ou página de agenda. Hoje o botão fica escondido por falta desse dado.</span></li>
+      <li><b>Prazo de implantação que dá para prometer</b><span class="muted">Concorrentes falam em "uma semana" ou "minutos". O título e a garantia só funcionam com um prazo verdadeiro.</span></li>
+      <li><b>Quais clientes topam virar caso</b><span class="muted">Um caso com nome, cargo e número de antes/depois vale mais que qualquer contador genérico.</span></li>
+      <li><b>Validar com 3 a 5 clientes</b><span class="muted">Eles pagariam por acompanhamento mensal baseado no painel de saúde e no relatório com a marca deles? A resposta define se o Dons é software com serviço ou serviço com software.</span></li>
+      <li><b>Onde ficam os dados</b><span class="muted">Com hospedagem fora do Brasil, os contratos precisam das cláusulas-padrão da ANPD para transferência internacional (prazo encerrado em 23/08/2025).</span></li>
+    </ol>
+  </section>
+
+  <footer>
+    <span>Fontes completas no relatório "Pesquisa de mercado de CRMs" (reports/ no repositório dons-crm). Preços e páginas coletados em 22/11/2026; vários sites exibiam ofertas de Black Friday.</span>
+    <span>Estado atual do produto conferido no código em 22/11/2026: valor ponderado, metas, motivos de perda, deduplicação, recursos de LGPD e app instalável ainda não existem.</span>
+  </footer>
+</div>
+
+<script>
+// ---------- Iniciativas (conteúdo do plano) ----------
+const FRENTES = [
+  { id: 'f1', titulo: 'Adoção e registro', quando: 'Primeiro · ~6 a 8 semanas no total', itens: [
+    { id: 'hoje', titulo: 'Tela "Hoje" para cada vendedor', o: 'Atrasados, retornos de hoje, leads sem próximo passo e negócios parados numa tela só, com reagendar em massa (+1 dia, +3 dias, +1 semana).', porque: '<b>Por quê:</b> a necessidade é tão comum que vira automação paga no Zapier ("lista diária de negócios sem atividade").', esforco: 'M', impacto: 'alto' },
+    { id: 'sinais', titulo: 'Sinais "parado" e "sem próximo passo" no card', o: 'Prazo de "parado" por etapa, selo no card e Kanban ordenado por próxima atividade (atrasados primeiro).', porque: '<b>Por quê:</b> padrão do Pipedrive ("rotting"); separar os dois sinais evita o problema que a própria Pipedrive admite.', esforco: 'P', impacto: 'alto' },
+    { id: 'totais', titulo: 'Total e valor ponderado por coluna', o: 'Cabeçalho com contagem, total e ponderado; probabilidade por etapa, ajustável em cada negócio.', porque: '<b>Por quê:</b> HubSpot mostra os dois, e os usuários pedem probabilidade por negócio em vez de fixa por etapa.', esforco: 'P', impacto: 'medio' },
+    { id: 'whats', titulo: 'WhatsApp registrado como atividade + modelos por etapa', o: 'Cada clique no WhatsApp entra na ficha; mensagens prontas por etapa com nome do lead preenchido.', porque: '<b>Por quê:</b> 59% não têm registro estruturado do que acontece no WhatsApp. É a dor mais medida da pesquisa.', esforco: 'M', impacto: 'alto' },
+    { id: 'proximo', titulo: 'Próximo passo sugerido, sem pop-up', o: 'Ao concluir um retorno ou mover etapa, chips de um clique ("WhatsApp em 2 dias", "Ligar amanhã") que podem ser pulados e nunca aparecem em ganho ou perdido.', porque: '<b>Por quê:</b> o pop-up obrigatório da Pipedrive gera reclamação, e desligá-lo exige plano caro.', esforco: 'P', impacto: 'alto' },
+    { id: 'mover', titulo: 'Menu "Mover para / Ganho / Perdido" e motivos de perda', o: 'Menu no card (funciona no celular e no teclado) e motivo obrigatório só ao marcar perdido.', porque: '<b>Por quê:</b> WCAG 2.2 pede alternativa ao arrastar; motivos de perda alimentam o relatório do gestor.', esforco: 'P', impacto: 'medio' },
+    { id: 'dedup', titulo: 'Duplicados por telefone e CNPJ', o: 'Aviso "já existe lead com este WhatsApp" no cadastro, no webhook e na importação; importação com prévia, mapeamento automático das colunas e desfazer.', porque: '<b>Por quê:</b> a HubSpot cobra o gerenciador de duplicados à parte; no Brasil a chave natural é telefone e CNPJ.', esforco: 'M', impacto: 'medio' },
+    { id: 'rapido', titulo: 'Cadastro rápido e estados vazios que ensinam', o: 'Novo lead com 3 campos (nome, WhatsApp, origem) e telas vazias que dizem o próximo passo, com dados de exemplo opcionais.', porque: '<b>Por quê:</b> entrada manual de dados é o principal motivo de abandono de CRM segundo os próprios fornecedores.', esforco: 'P', impacto: 'medio' },
+  ]},
+  { id: 'f2', titulo: 'Consultoria como produto', quando: 'Depois · ~8 a 12 semanas', itens: [
+    { id: 'templates', titulo: 'Templates por segmento aplicados pelo superadmin', o: 'Funil, probabilidades, prazo de "parado", campos, motivos de perda e mensagens de WhatsApp por segmento, aplicados ao criar a empresa.', porque: '<b>Por quê:</b> o GoHighLevel escala agências assim ("snapshots"); reduz o tempo de cada implantação.', esforco: 'M', impacto: 'alto' },
+    { id: 'checklist', titulo: 'Checklist de implantação por empresa', o: 'No dashboard: marca configurada, funil revisado, planilha importada, time convidado, primeiro lead pelo webhook, treinamento feito.', porque: '<b>Por quê:</b> o modelo "software + consultoria" perde reputação quando a consultoria falha (casos Kommo no Reclame Aqui). Escopo explícito protege.', esforco: 'P', impacto: 'medio' },
+    { id: 'saude', titulo: 'Painel de saúde de adoção por cliente', o: 'Para a Dons: usuários ativos por semana, % de leads sem próximo passo, atrasados e leads criados, com alerta de queda.', porque: '<b>Por quê:</b> nenhum concorrente analisado oferece isso a parceiros. Antecipa cancelamento e prova o valor do acompanhamento.', esforco: 'M', impacto: 'alto' },
+    { id: 'relatorio', titulo: 'Relatório mensal com a marca do cliente', o: 'Enviado ao dono: leads, conversão por etapa, vendas, motivos de perda e o que mudou no mês, com logo e cores da empresa.', porque: '<b>Por quê:</b> combinado ao painel de saúde, não foi encontrado em nenhum concorrente. Sustenta uma mensalidade de acompanhamento.', esforco: 'M', impacto: 'alto' },
+    { id: 'metas', titulo: 'Metas e painel do gestor', o: 'Meta por vendedor; conversão por etapa, taxa de ganho, ciclo médio e tempo por etapa.', porque: '<b>Por quê:</b> "relatórios e filtros pouco práticos" é a pior nota do RD Station CRM no B2B Stack.', esforco: 'M', impacto: 'medio' },
+    { id: 'pwa', titulo: 'App instalável com a marca de cada empresa', o: 'PWA com nome, ícone e cor do cliente, instalável na tela inicial do celular.', porque: '<b>Por quê:</b> o GoHighLevel cobra US$ 497/mês pelo app com marca. Limite a confirmar: notificações no iPhone.', esforco: 'P', impacto: 'medio' },
+    { id: 'lgpd', titulo: 'LGPD no produto', o: 'Origem e base legal do lead, exportar e excluir dados de um contato, registro de quem acessou o quê.', porque: '<b>Por quê:</b> a ANPD virou agência reguladora; o caso Telekall puniu uma microempresa que vendia listas para WhatsApp. Também é argumento de venda.', esforco: 'M', impacto: 'medio' },
+  ]},
+  { id: 'f3', titulo: 'Site e textos', quando: 'Em paralelo · ~2 semanas', itens: [
+    { id: 'headline', titulo: 'Título de resultado na home', o: 'Trocar o atributo ("com a marca da sua empresa") por um resultado, levando a marca para a linha de apoio. Opções abaixo.', porque: '<b>Por quê:</b> todos os concorrentes abrem com o fim de uma dor ("A era do vendedor preencher o CRM chegou ao fim").', esforco: 'P', impacto: 'alto' },
+    { id: 'ctas', titulo: '"Experimente agora, sem cadastro" + consultor no WhatsApp', o: 'Renomear a demonstração como experiência imediata e pôr o botão humano ao lado.', porque: '<b>Por quê:</b> a demo sem cadastro é mais aberta que a de qualquer concorrente, mas hoje é vendida como "Ver a demonstração". Todos usam o par autoatendimento + humano.', esforco: 'P', impacto: 'alto' },
+    { id: 'preco', titulo: 'Preço "a partir de" e FAQ de custos', o: 'Valor por empresa com implantação inclusa e respostas para: quanto custa, o que inclui, em quanto tempo e como cancelar.', porque: '<b>Por quê:</b> todos os grandes brasileiros mostram preço; sem nenhum, o visitante precisa falar com alguém só para saber se cabe no orçamento.', esforco: 'P', impacto: 'alto' },
+    { id: 'caso', titulo: 'Um caso real com nome e número', o: 'Cliente, cargo e um antes/depois verdadeiro no lugar de números genéricos.', porque: '<b>Por quê:</b> a prova social brasileira é local e presa a nomes ("Eu estava às cegas. Dobramos a meta…").', esforco: 'P', impacto: 'medio' },
+    { id: 'risco', titulo: 'Transparência como redução de risco', o: '"Sem fidelidade", "seus dados exportáveis a qualquer momento", "contratos conforme a LGPD".', porque: '<b>Por quê:</b> mira as principais queixas contra RD e Kommo: cobrança, cancelamento e reembolso.', esforco: 'P', impacto: 'medio' },
+  ]},
+  { id: 'f4', titulo: 'Próximo degrau', quando: 'Depois de validar as frentes anteriores', itens: [
+    { id: 'inbox', titulo: 'Inbox com a API oficial do WhatsApp', o: 'Conversas dentro do CRM, vários atendentes, custo da Meta repassado de forma transparente (como faz a Clint).', porque: '<b>Por quê:</b> 57% das empresas não usam a API oficial; é o add-on pago mais comum (PipeRun R$ 99,90/mês, Agendor Chat a partir de R$ 312/mês). Exige custo e suporte.', esforco: 'G', impacto: 'alto' },
+    { id: 'roleta', titulo: 'Distribuição automática de leads', o: 'Roleta entre vendedores para leads do webhook e do inbox, com regras por origem.', porque: '<b>Por quê:</b> aparece junto da captação nos concorrentes (PipeRun, Agendor Chat).', esforco: 'M', impacto: 'medio' },
+    { id: 'metaads', titulo: 'Meta Lead Ads e Click-to-WhatsApp', o: 'Leads de anúncios entrando direto no funil, com a origem da campanha.', porque: '<b>Por quê:</b> conversas vindas de anúncio Click-to-WhatsApp são grátis por 72 horas na tabela da Meta desde 07/2025.', esforco: 'M', impacto: 'medio' },
+    { id: 'ia', titulo: 'IA que resume e sugere', o: 'Resumo da ficha, sugestão do próximo passo e rascunho da mensagem de WhatsApp.', porque: '<b>Por quê:</b> só 7% das PMEs brasileiras usam IA nas conversas; o mercado vende IA como upgrade caro. Entrar depois, com o nome da empresa cliente.', esforco: 'G', impacto: 'medio' },
+    { id: 'cobranca', titulo: 'Cobrança, troca de plano e domínio próprio', o: 'O cliente vê fatura, troca de plano e cancela sozinho; opção de usar o domínio da empresa.', porque: '<b>Por quê:</b> o cliente sem conseguir trocar de plano ou cancelar é uma das críticas ao modo SaaS do GoHighLevel.', esforco: 'G', impacto: 'medio' },
+  ]},
+];
+const ROTULO = { aprovar: 'Aprovar', discutir: 'Discutir', recusar: 'Recusar' };
+const CLASSE = { aprovar: 'ok', discutir: 'talk', recusar: 'no' };
+const TODOS = FRENTES.flatMap((f) => f.itens);
+
+// ---------- Estado ----------
+let db = null, user = null, meuId = null;
+let votos = {};       // { uid: { itens: { itemId: { voto, nota, em } } } }
+let nomes = {};       // uid -> nome
+let gravando = Promise.resolve();
+let podeVotar = false;
+
+// ---------- Render estático das iniciativas ----------
+const raiz = document.getElementById('frentes');
+for (const f of FRENTES) {
+  const sec = document.createElement('div');
+  sec.className = 'frente';
+  sec.innerHTML = `<div class="frente-head"><h3 style="font-size:20px">${f.titulo}</h3><span class="quando">${f.quando}</span></div>`;
+  const ul = document.createElement('ul');
+  ul.className = 'itens';
+  f.itens.forEach((it) => {
+    const li = document.createElement('li');
+    li.className = 'item';
+    li.id = 'item-' + it.id;
+    li.innerHTML = `
+      <div class="item-corpo">
+        <div class="item-topo"><h3>${it.titulo}</h3></div>
+        <p>${it.o}</p>
+        <p class="porque">${it.porque}</p>
+        <div class="tags"><span class="tag">Esforço ${it.esforco}</span><span class="tag ${it.impacto === 'alto' ? 'alto' : ''}">Impacto ${it.impacto === 'alto' ? 'alto' : 'médio'}</span></div>
+      </div>
+      <div class="voto">
+        <div class="botoes" role="group" aria-label="Seu voto em: ${it.titulo.replace(/"/g, '')}">
+          ${['aprovar', 'discutir', 'recusar'].map((v) => `<button type="button" data-item="${it.id}" data-v="${v}" aria-pressed="false" disabled>${ROTULO[v]}</button>`).join('')}
+        </div>
+        <div class="contagem" data-contagem="${it.id}"></div>
+        <div class="quem" data-quem="${it.id}"></div>
+        <button type="button" class="nota-toggle" data-nota-toggle="${it.id}" hidden>Comentar</button>
+      </div>
+      <div class="nota" data-nota="${it.id}" hidden>
+        <label for="nota-${it.id}" class="muted" style="font-size:12px">Seu comentário sobre "${it.titulo.replace(/"/g, '')}"</label>
+        <textarea id="nota-${it.id}" data-nota-campo="${it.id}" maxlength="600"></textarea>
+        <span class="salvo" data-nota-status="${it.id}"></span>
+      </div>
+      <div class="notas-time" data-notas="${it.id}"></div>`;
+    ul.appendChild(li);
+  });
+  sec.appendChild(ul);
+  raiz.appendChild(sec);
+}
+
+// ---------- Render dos votos ----------
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function renderVotos() {
+  const geral = { aprovar: 0, discutir: 0, recusar: 0 };
+  let decididos = 0;
+  for (const it of TODOS) {
+    const cont = { aprovar: [], discutir: [], recusar: [] };
+    const notas = [];
+    for (const [uid, d] of Object.entries(votos)) {
+      const v = d?.itens?.[it.id];
+      if (v?.voto && cont[v.voto]) cont[v.voto].push(uid);
+      if (v?.nota && uid !== meuId) notas.push({ uid, nota: v.nota });
+    }
+    const total = cont.aprovar.length + cont.discutir.length + cont.recusar.length;
+    if (total) decididos++;
+    const maioria = total ? Object.entries(cont).sort((a, b) => b[1].length - a[1].length)[0][0] : null;
+    if (maioria) geral[maioria]++;
+    document.querySelector(`[data-contagem="${it.id}"]`).innerHTML = total
+      ? Object.entries(cont).filter(([, l]) => l.length).map(([v, l]) => `<span class="pill ${CLASSE[v]}">${ROTULO[v]} ${l.length}</span>`).join('')
+      : '<span class="pill neutro">Sem votos</span>';
+    const nomesVoto = Object.entries(cont).flatMap(([v, l]) => l.map((u) => `${u === meuId ? 'Você' : (nomes[u] || 'Alguém')} (${ROTULO[v].toLowerCase()})`));
+    document.querySelector(`[data-quem="${it.id}"]`).textContent = nomesVoto.join(', ');
+    const meu = votos[meuId]?.itens?.[it.id];
+    document.querySelectorAll(`button[data-item="${it.id}"]`).forEach((b) => {
+      b.setAttribute('aria-pressed', String(meu?.voto === b.dataset.v));
+      b.disabled = !podeVotar;
+    });
+    const tog = document.querySelector(`[data-nota-toggle="${it.id}"]`);
+    tog.hidden = !podeVotar;
+    if (meu?.nota) tog.textContent = 'Editar comentário';
+    const campo = document.querySelector(`[data-nota-campo="${it.id}"]`);
+    if (document.activeElement !== campo && meu?.nota !== undefined) campo.value = meu.nota || '';
+    document.querySelector(`[data-notas="${it.id}"]`).innerHTML = notas.map((n) => `<p><b>${esc(nomes[n.uid] || 'Alguém')}:</b> ${esc(n.nota)}</p>`).join('');
+  }
+  document.getElementById('placar-geral').innerHTML =
+    `<span class="pill neutro tabular">${decididos} de ${TODOS.length} com voto</span>` +
+    `<span class="pill ok tabular">Aprovadas ${geral.aprovar}</span><span class="pill talk tabular">Discutir ${geral.discutir}</span><span class="pill no tabular">Recusadas ${geral.recusar}</span>`;
+}
+
+// ---------- Gravação: um documento por pessoa, uma escrita por vez ----------
+function gravarMeu(itemId, patch) {
+  if (!db || !meuId) return;
+  const atual = votos[meuId]?.itens || {};
+  const novo = { ...atual, [itemId]: { ...(atual[itemId] || {}), ...patch, em: Date.now() } };
+  votos[meuId] = { itens: novo };
+  renderVotos();
+  gravando = gravando.then(() => db.doc('votos/' + meuId).set({ itens: novo })).catch((e) => {
+    document.getElementById('aviso').textContent = e?.code === 'permission_denied' || e?.code === 'not_granted'
+      ? 'Você pode ver o plano, mas não tem permissão para votar.'
+      : 'Não foi possível salvar seu voto. Tente de novo em instantes.';
+  });
+  return gravando;
+}
+
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-v]');
+  if (b && !b.disabled) {
+    const atual = votos[meuId]?.itens?.[b.dataset.item]?.voto;
+    gravarMeu(b.dataset.item, { voto: atual === b.dataset.v ? null : b.dataset.v });
+    return;
+  }
+  const t = e.target.closest('[data-nota-toggle]');
+  if (t) {
+    const caixa = document.querySelector(`[data-nota="${t.dataset.notaToggle}"]`);
+    caixa.hidden = !caixa.hidden;
+    if (!caixa.hidden) caixa.querySelector('textarea').focus();
+  }
+});
+const timers = {};
+document.addEventListener('input', (e) => {
+  const c = e.target.closest('[data-nota-campo]');
+  if (!c) return;
+  const id = c.dataset.notaCampo;
+  const st = document.querySelector(`[data-nota-status="${id}"]`);
+  st.textContent = 'Salvando…';
+  clearTimeout(timers[id]);
+  timers[id] = setTimeout(async () => {
+    await gravarMeu(id, { nota: c.value.trim() });
+    st.textContent = c.value.trim() ? 'Comentário salvo' : 'Comentário removido';
+  }, 700);
+});
+
+// ---------- Conexão com o armazenamento compartilhado ----------
+(async () => {
+  const aviso = document.getElementById('aviso');
+  renderVotos();
+  const espera = setTimeout(() => { aviso.textContent = 'Os votos ainda não carregaram. Você pode ler o plano normalmente.'; }, 10000);
+  try {
+    [db, user] = await Promise.all([window.claude?.use?.('db') ?? null, window.claude?.use?.('user') ?? null]);
+  } catch { db = null; }
+  if (!db || !user) {
+    clearTimeout(espera);
+    aviso.textContent = 'Entre na sua conta claude.ai para votar. A leitura do plano funciona sem login.';
+    return;
+  }
+  meuId = await user.id();
+  podeVotar = (await user.can('data.write')) !== false && !!meuId;
+  db.collection('votos').onSnapshot(async (snap) => {
+    if (!snap.metadata?.fromCache) clearTimeout(espera);
+    const novo = {};
+    snap.docs.forEach((d) => { novo[d.id] = d.data() || {}; });
+    // mantém minha versão local se houver escrita pendente
+    if (votos[meuId] && !novo[meuId]) novo[meuId] = votos[meuId];
+    votos = novo;
+    const ids = Object.keys(votos).filter((u) => u !== meuId);
+    if (ids.length) {
+      try { const ps = await user.profiles(ids); ids.forEach((u) => { nomes[u] = ps?.[u]?.name || ''; }); } catch {}
+    }
+    aviso.textContent = podeVotar ? 'Seus votos e comentários são salvos na hora e todos veem o placar.' : 'Você pode ver o plano e o placar, mas não tem permissão para votar.';
+    renderVotos();
+  }, () => {
+    clearTimeout(espera);
+    aviso.textContent = 'Não foi possível carregar os votos agora. O plano continua legível.';
+  });
+})();
+</script>
