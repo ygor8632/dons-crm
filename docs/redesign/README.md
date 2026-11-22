@@ -33,7 +33,28 @@ Gerados com dados fictícios, interceptando o Supabase no navegador (nada tocou 
   dois temas: todas as combinações ≥ 4,5:1 depois de engrossar o vidro com imagem (`[data-fundo=imagem]`).
 - Prints: `prints/marca-*.jpg`.
 
+## Etapa 3: fase 2, home e acesso (22/11/2026)
+- **Home** reescrita no sistema glassy, seguindo as regras da `taste-skill` (tipo software): h1 com a
+  categoria, um fato concreto na primeira tela, o produto como UI real (prévia do painel e do Kanban),
+  uma ideia por seção, sem preço, depoimento ou número inventado. Seletor de cor que recolore a prévia
+  na hora; lead entrando pelo webhook em loop (para com reduced-motion).
+- **Login, esqueci e redefinir senha** com o mesmo layout (`components/site/auth-layout.tsx`):
+  "Esqueci a senha" agora leva à página certa (antes não fazia nada); mostrar/ocultar senha; erro
+  anunciado ao leitor de tela; senha nova com 8+ caracteres, letra e número, com as regras ao vivo;
+  link expirado vira um botão para pedir outro.
+- "Falar com um consultor" só aparece com `NEXT_PUBLIC_CONTATO_URL` configurada (não havia contato real).
+- Verificadores da taste-skill: copy-lint 0 FAIL/0 WARN. O verificador de consistência caiu de 42 para
+  31 FAILs. Corrigidos: contraste do card de destaque (também no dashboard: verde novo
+  `#1c8062 → #0d5a45`, texto branco 4,9:1), tinta `--ink-2` para texto direto sobre o fundo quente,
+  anel de foco na cor do texto (global), menu que quebrava em 768 px. Os restantes vêm da gramática
+  própria do kit (container `.wrap`, seções de exatamente 100vh, "aninhamento" dentro da prévia do
+  produto, heurística de títulos em inglês) ou são falsos positivos (foco "invisível" em elemento fora
+  da tela: conferido em print, o anel aparece).
+- Prints: `prints/fase2-*.jpg`.
+
 ## Pendente (próximas etapas)
+- `/demo` no sistema glassy (ainda na versão antiga, com 17 erros de lint).
+- Configurar `NEXT_PUBLIC_CONTATO_URL` na Hostinger para o botão de consultor aparecer.
 - Testar o envio real com a conta de admin (os testes daqui usaram Storage simulado no navegador).
 - Paleta categórica do modo escuro: âmbar e coral ficam próximos para daltonismo (há legenda e rótulos,
   mas vale ajustar o tom).

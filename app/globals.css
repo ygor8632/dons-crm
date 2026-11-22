@@ -33,6 +33,7 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-emerald-from: var(--emerald-from);
   --color-emerald-to: var(--emerald-to);
+  --color-ink-2: var(--ink-2);
 
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
@@ -113,8 +114,9 @@
   --warning-foreground: #6e4f00;
 
   /* Card de destaque */
-  --emerald-from: #63ccad;
-  --emerald-to: #13775b;
+  --emerald-from: #1c8062; /* branco a 4.9:1 no ponto mais claro */
+  --emerald-to: #0d5a45;
+  --ink-2: #2e2724; /* texto direto sobre o fundo quente (páginas públicas): ≥ 4.5:1 nas manchas escuras */
 
   /* Paleta categórica validada (dataviz): azul, coral, âmbar, violeta, verde */
   --chart-1: #5d73e0;
@@ -175,8 +177,9 @@
   --warning: rgb(227 172 23 / 0.18);
   --warning-foreground: #f0cd6e;
 
-  --emerald-from: #3fae8d;
-  --emerald-to: #0d5a45;
+  --emerald-from: #1a7a5e;
+  --emerald-to: #0b4a39;
+  --ink-2: #e8e0d8;
 
   --chart-1: #7487ea;
   --chart-2: #e0604f;
@@ -338,9 +341,10 @@
   ::selection {
     background: color-mix(in oklch, var(--brand) 30%, transparent);
   }
+  /* Anel de foco na cor do texto: escuro no claro, claro no escuro, visível ao lado de qualquer cor de marca */
   :focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: 2px;
+    outline: 2px solid var(--foreground);
+    outline-offset: 3px;
   }
   .tabular { font-variant-numeric: tabular-nums; }
   * {
@@ -372,3 +376,26 @@
   :root { --glass-border: rgb(27 23 22 / 0.45); --muted-foreground: #3d3530; }
   .dark { --glass-border: rgb(255 255 255 / 0.4); --muted-foreground: #ddd3cb; }
 }
+
+/* ---------- Site público ---------- */
+
+/* Lead entrando pelo webhook: loop de 3,2 s (para com reduced-motion) */
+.lead-novo { animation: lead-chega 3.2s var(--ease-out) infinite; transform-origin: top center; }
+@keyframes lead-chega {
+  0%, 8% { opacity: 0; transform: translateY(-14px) scale(0.97); filter: blur(3px); }
+  22%, 82% { opacity: 1; transform: none; filter: blur(0); }
+  100% { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lead-novo { animation: none; }
+}
+
+/* Entrada do hero, uma vez, em sequência curta */
+@keyframes entra-k {
+  from { opacity: 0; transform: translateY(10px); filter: blur(6px); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+.entra { animation: entra-k 560ms var(--ease-out) both; animation-delay: calc(var(--i, 0) * 70ms); }
+@media (prefers-reduced-motion: reduce) { .entra { animation: none; } }
+html { scroll-behavior: smooth; scroll-padding-top: 96px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }

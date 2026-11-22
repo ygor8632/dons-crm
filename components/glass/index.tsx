@@ -62,7 +62,7 @@ export function StatCard({ rotulo, valor, icone: Icone, delta, legenda, destaque
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <span className={cn('text-[13px] font-medium', destaque ? 'text-white/90' : 'text-muted-foreground')}>{rotulo}</span>
+        <span className={cn('text-[13px] font-medium', destaque ? 'text-white' : 'text-muted-foreground')}>{rotulo}</span>
         <span
           className={cn(
             'grid size-8 shrink-0 place-items-center rounded-full',
@@ -78,9 +78,9 @@ export function StatCard({ rotulo, valor, icone: Icone, delta, legenda, destaque
         {(delta != null || legenda) && (
           <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
             {delta != null && (
-              <DeltaChip valor={delta} className={destaque ? 'bg-white/20 text-white' : undefined} />
+              <DeltaChip valor={delta} className={destaque ? 'bg-black/20 text-white' : undefined} />
             )}
-            {legenda && <span className={destaque ? 'text-white/85' : 'text-muted-foreground'}>{legenda}</span>}
+            {legenda && <span className={destaque ? 'text-white' : 'text-muted-foreground'}>{legenda}</span>}
           </div>
         )}
       </div>
