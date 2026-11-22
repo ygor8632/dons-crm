@@ -92,14 +92,14 @@ export default function SuperAdminDashboard() {
 
     try {
       // 1. Criar a Empresa (Tenant)
-      const tokenRandom = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      // webhook_token é gerado pelo próprio banco (gen_random_uuid), não pelo navegador
       const dataValidade = novaEmp.validoAte ? new Date(novaEmp.validoAte).toISOString() : null;
 
       const { data: emp, error: erroEmp } = await supabase.from('empresas').insert([{
         nome: novaEmp.nome,
+        email: novaEmp.emailAdmin,
         plano: novaEmp.plano,
         valido_ate: dataValidade,
-        webhook_token: tokenRandom,
         ativo: true
       }]).select().single();
 

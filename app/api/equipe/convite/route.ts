@@ -1,42 +1,82 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { z } from 'zod';
+import { createClient } from '@/utils/supabase/server';
+import { supabaseAdmin } from '@/utils/supabase/admin';
 
-// Inicializa o cliente do Supabase com privilégios de Admin
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const conviteSchema = z.object({
+  email: z.string().trim().toLowerCase().email().max(150),
+  empresa_id: z.string().uuid(),
+  role: z.enum(['admin', 'vendedor']).default('vendedor'),
+});
 
 export async function POST(request: Request) {
   try {
-    const { email, empresa_id, role } = await request.json();
-
-    if (!email || !empresa_id) {
-      return NextResponse.json({ error: 'E-mail e ID da empresa são obrigatórios.' }, { status: 400 });
+    // 1. Quem está chamando? (sessão validada no servidor do Supabase)
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
     }
 
-    // 1. Envia o convite oficial via Supabase Auth
+    // 2. Validação do payload
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Payload JSON inválido.' }, { status: 400 });
+    }
+    const parsed = conviteSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'E-mail, empresa ou cargo inválidos.' }, { status: 400 });
+    }
+    const { email, empresa_id, role } = parsed.data;
+
+    // 3. Autorização: superadmin convida para qualquer empresa e qualquer cargo;
+    //    admin só convida vendedores para a própria empresa.
+    const { data: chamador } = await supabaseAdmin
+      .from('perfis')
+      .select('role, empresa_id')
+      .eq('id', user.id)
+      .single();
+
+    const isSuperadmin = chamador?.role === 'superadmin';
+    const isAdminDaEmpresa = chamador?.role === 'admin' && chamador.empresa_id === empresa_id;
+
+    if (!isSuperadmin && !(isAdminDaEmpresa && role === 'vendedor')) {
+      return NextResponse.json({ error: 'Sem permissão para este convite.' }, { status: 403 });
+    }
+
+    // 4. A empresa precisa existir e estar ativa
+    const { data: empresa } = await supabaseAdmin
+      .from('empresas')
+      .select('id, ativo')
+      .eq('id', empresa_id)
+      .single();
+    if (!empresa || !empresa.ativo) {
+      return NextResponse.json({ error: 'Empresa inexistente ou inativa.' }, { status: 400 });
+    }
+
+    // 5. Envia o convite oficial via Supabase Auth
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-      data: {
-        empresa_id: empresa_id,
-        role_solicitada: role || 'vendedor'
-      }
+      data: { empresa_id, role_solicitada: role },
     });
-
-    if (authError) {
-      return NextResponse.json({ error: authError.message }, { status: 400 });
+    if (authError || !authData.user) {
+      console.error('Falha no convite:', authError?.message);
+      return NextResponse.json({ error: 'Não foi possível enviar o convite. Verifique se o e-mail já está cadastrado.' }, { status: 400 });
     }
 
-    // 2. Garante que o perfil do utilizador convidado recebe a permissão e a empresa correta imediatamente
-    if (authData.user) {
-      await supabaseAdmin.from('perfis').update({
-        empresa_id: empresa_id,
-        role: role || 'vendedor'
-      }).eq('id', authData.user.id);
+    // 6. Cria (ou atualiza) o perfil já ligado à empresa e ao cargo corretos
+    const { error: perfilError } = await supabaseAdmin
+      .from('perfis')
+      .upsert({ id: authData.user.id, email, empresa_id, role }, { onConflict: 'id' });
+    if (perfilError) {
+      console.error('Falha ao criar perfil do convidado:', perfilError.message);
+      return NextResponse.json({ error: 'Convite enviado, mas houve falha ao criar o perfil.' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, message: 'Convite enviado com sucesso!' });
-  } catch (error: any) {
+  } catch (error) {
+    console.error('Erro no convite:', error);
     return NextResponse.json({ error: 'Erro interno no servidor.' }, { status: 500 });
   }
 }
