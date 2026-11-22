@@ -74,9 +74,9 @@ Achado pelo advisor do Supabase: RLS **desligado** em `empresas`, `leads`, `perf
 - [x] Migration `supabase/migrations/20261122000000_rls_multitenant.sql` aplicada em produção.
 - [x] Ensaio prévio (`supabase/tests/ensaio_rls.sql`): 41/41 testes ok, com rollback forçado.
 - [x] Advisor de segurança: 0 erros. Restam: tabelas legadas `tenants`/`profiles` sem policies (intencional, fechadas) e proteção contra senhas vazadas.
-- [ ] Ativar "Leaked password protection" em Supabase → Authentication → Providers → Email (ou Settings → Auth).
-- [ ] Apagar as tabelas/funções legadas (`tenants`, `profiles`, `get_user_role`, `get_user_tenant_id`, `public.is_superadmin`) depois de confirmar que nada as usa.
-- [ ] Usuário `d5bf9524…` (criado em 09/10) sem perfil: decidir empresa/cargo ou remover.
+- [~] "Leaked password protection" — indisponível no plano gratuito. Alternativa: exigir senha mínima de 8+ caracteres com letras e números em Authentication → Sign In / Providers → Email.
+- [x] Tabelas/funções legadas apagadas (`tenants`, `profiles`, `leads.tenant_id`, `get_user_role`, `get_user_tenant_id`, `public.is_superadmin`) — migration `20261122010000`.
+- [x] Usuários de teste removidos. Restam: `ygor8632@gmail.com` (superadmin) e `marketingygor2@gmail.com` (admin da Dons tech ltda., conta de validação das telas de cliente).
 - [ ] Hostinger não injeta as variáveis de ambiente no build: o `next.config.mjs` tem fallback para a configuração pública e o cliente admin lê a secret key só em tempo de execução.
 
 Outras correções já em produção: cadastro de empresa (webhook_token uuid gerado pelo banco + e-mail obrigatório), API de convite autenticada e criando o perfil, rotas inseguras removidas, Next.js 16.4.6.

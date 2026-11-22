@@ -1,4 +1,6 @@
 -- Ensaio da migration de RLS. Cole DEPOIS do corpo da migration (sem begin/commit),
+-- ATENÇÃO: os IDs abaixo são do ensaio de 22/11/2026; o vendedor de teste (26a70f3b) e a tabela
+-- tenants/profiles foram removidos depois. Ajuste os IDs antes de reutilizar este roteiro.
 -- tudo dentro de um único BEGIN. O último bloco lança um erro de propósito com os
 -- resultados, o que força o ROLLBACK de tudo — nada fica gravado.
 -- IDs: superadmin 29d9c75d, admin 6b82b2d4, vendedor 26a70f3b (empresa 8976ddf9),
