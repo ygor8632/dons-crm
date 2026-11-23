@@ -12,6 +12,8 @@ import { useTema } from '@/components/theme/theme';
 import { CampoNome } from '@/components/conta/campo-nome';
 import { cn } from '@/lib/utils';
 import { COR_PADRAO, corSolida } from '@/lib/marca';
+import { PreviaTemplate } from './implantacao';
+import { TEMPLATES } from '@/lib/templates-segmento';
 import { PLANOS, avaliarSaude, diasParaVencer, rotuloPlano, type Dashboard, type EmpresaAdmin, type NivelSaude } from '../_lib/use-dashboard';
 
 type Base = { dash: Dashboard; suspender: (e: EmpresaAdmin) => void; novaEmpresa: () => void };
@@ -262,7 +264,7 @@ export function ConfigAdmin({ dash }: { dash: Dashboard }) {
 
 /* ---------------- Diálogos ---------------- */
 
-const VAZIO = { nome: '', emailAdmin: '', plano: 'trial', validoAte: '' };
+const VAZIO = { nome: '', emailAdmin: '', plano: 'trial', validoAte: '', segmento: 'geral' };
 
 export function NovaEmpresaDialog({ dash, aberto, aoMudar }: { dash: Dashboard; aberto: boolean; aoMudar: (v: boolean) => void }) {
   const [d, setD] = useState(VAZIO);
@@ -278,7 +280,7 @@ export function NovaEmpresaDialog({ dash, aberto, aoMudar }: { dash: Dashboard; 
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Nova empresa</DialogTitle>
-          <DialogDescription>Cria o ambiente do cliente, o funil inicial e envia o convite ao administrador.</DialogDescription>
+          <DialogDescription>Cria o ambiente do cliente com o template do segmento e envia o convite ao administrador.</DialogDescription>
         </DialogHeader>
         <form onSubmit={enviar} className="space-y-4">
           <div className="space-y-2"><Label htmlFor="ne-nome">Nome da empresa *</Label><Input id="ne-nome" required value={d.nome} onChange={(e) => setD({ ...d, nome: e.target.value })} /></div>
@@ -291,6 +293,13 @@ export function NovaEmpresaDialog({ dash, aberto, aoMudar }: { dash: Dashboard; 
               </select>
             </div>
             <div className="space-y-2"><Label htmlFor="ne-validade">Válido até</Label><Input id="ne-validade" type="date" value={d.validoAte} onChange={(e) => setD({ ...d, validoAte: e.target.value })} /></div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="ne-segmento">Segmento</Label>
+            <select id="ne-segmento" value={d.segmento} onChange={(e) => setD({ ...d, segmento: e.target.value })} className="h-10 w-full appearance-none rounded-xl border border-input bg-pill-active/55 px-3 text-[13px] dark:bg-white/6">
+              {TEMPLATES.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
+            </select>
+            <PreviaTemplate id={d.segmento} />
           </div>
           <DialogFooter className="pt-2">
             <Button type="button" variant="ghost" onClick={() => aoMudar(false)}>Cancelar</Button>

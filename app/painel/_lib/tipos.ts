@@ -96,6 +96,9 @@ export type Empresa = {
   logo_url?: string | null;
   cor_fundo_logo?: string | null;
   fundo_url?: string | null;
+  segmento?: string | null;
+  /** Motivos oferecidos ao marcar perdido; null = lista padrão. */
+  motivos_perda?: string[] | null;
 };
 
 /** Meta mensal de vendas: de um vendedor ou da empresa toda (usuario_id nulo). mes = AAAA-MM-01. */

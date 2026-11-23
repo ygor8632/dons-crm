@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { createClient } from '@/utils/supabase/client';
+import { TEMPLATES, templatePorId, type TemplateSegmento } from '@/lib/templates-segmento';
 
 export type EmpresaAdmin = {
   id: string;
@@ -14,7 +15,57 @@ export type EmpresaAdmin = {
   valido_ate?: string | null;
   cor_primaria?: string | null;
   created_at: string;
+  logo_url?: string | null;
+  segmento?: string | null;
+  motivos_perda?: string[] | null;
+  /** Itens marcados à mão: { treinamento: "2026-11-23T…", planilha: "dispensado", inicio: "…" } */
+  implantacao?: Record<string, string> | null;
 };
+
+/** O que o banco mede sozinho para o checklist (função checklist_implantacao). */
+export type ChecklistAuto = {
+  empresa_id: string;
+  tem_logo: boolean;
+  etapas: number;
+  membros: number;
+  acessaram: number;
+  importados: number;
+  leads_webhook: number;
+  modelos: number;
+  leads: number;
+};
+
+export type ItemChecklist = { id: string; titulo: string; dica: string; auto?: (c: ChecklistAuto) => boolean; podeDispensar?: boolean };
+
+/** Escopo da implantação: o que a Dons entrega em até 7 dias. */
+export const ITENS_CHECKLIST: ItemChecklist[] = [
+  { id: 'marca', titulo: 'Marca configurada', dica: 'Logo e cor da empresa no painel.', auto: (c) => c.tem_logo },
+  { id: 'funil', titulo: 'Funil revisado com o cliente', dica: 'Etapas, chance de fechar e prazo de "parado" conferidos na reunião.' },
+  { id: 'planilha', titulo: 'Planilha importada', dica: 'Contatos que o cliente já tinha, sem repetidos.', auto: (c) => c.importados > 0, podeDispensar: true },
+  { id: 'equipe', titulo: 'Equipe convidada', dica: 'Pelo menos um vendedor além do administrador.', auto: (c) => c.membros >= 2, podeDispensar: true },
+  { id: 'acesso', titulo: 'Equipe entrou no CRM', dica: 'Todos os convidados criaram a senha e entraram.', auto: (c) => c.membros > 0 && c.acessaram >= c.membros },
+  { id: 'site', titulo: 'Site ligado', dica: 'Primeiro lead chegou sozinho pelo webhook.', auto: (c) => c.leads_webhook > 0, podeDispensar: true },
+  { id: 'mensagens', titulo: 'Mensagens prontas', dica: 'Pelo menos uma mensagem de WhatsApp cadastrada.', auto: (c) => c.modelos > 0 },
+  { id: 'treinamento', titulo: 'Treinamento feito', dica: 'Equipe treinada na tela Hoje, no Kanban e na ficha do lead.' },
+];
+
+export const PRAZO_IMPLANTACAO = 7;
+
+/** Situação de cada item: feito sozinho, marcado à mão, dispensado ou pendente. */
+export function situacaoChecklist(emp: EmpresaAdmin, auto?: ChecklistAuto) {
+  const marcas = emp.implantacao ?? {};
+  const itens = ITENS_CHECKLIST.map((item) => {
+    const marca = marcas[item.id];
+    const feitoAuto = !!(auto && item.auto?.(auto));
+    const estado: 'auto' | 'manual' | 'dispensado' | 'pendente' = feitoAuto ? 'auto' : marca === 'dispensado' ? 'dispensado' : marca ? 'manual' : 'pendente';
+    return { ...item, estado, em: marca && marca !== 'dispensado' ? marca : null };
+  });
+  const feitos = itens.filter((i) => i.estado !== 'pendente').length;
+  // Empresas criadas antes do checklist não têm data de início: ficam sem prazo
+  const inicio = marcas.inicio ?? null;
+  const dia = inicio ? Math.max(1, Math.floor((Date.now() - new Date(inicio).getTime()) / 864e5) + 1) : null;
+  return { itens, feitos, total: itens.length, completo: feitos === itens.length, dia, atrasado: dia != null && feitos < itens.length && dia > PRAZO_IMPLANTACAO };
+}
 
 export const PLANOS = [
   { id: 'trial', label: 'Trial' },
@@ -79,6 +130,7 @@ export function useDashboard() {
   const [perfis, setPerfis] = useState<{ id: string; empresa_id: string | null }[]>([]);
   const [totalLeads, setTotalLeads] = useState(0);
   const [saude, setSaude] = useState<SaudeEmpresa[]>([]);
+  const [checklist, setChecklist] = useState<ChecklistAuto[]>([]);
 
   const carregar = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -92,12 +144,15 @@ export function useDashboard() {
     setEmail(session.user.email ?? null);
     setMeuId(session.user.id);
     setNome((meu?.nome as string) || '');
-    const [{ data: emps }, { data: pfs }, { count }, { data: sde, error: erroSaude }] = await Promise.all([
+    const [{ data: emps }, { data: pfs }, { count }, { data: sde, error: erroSaude }, { data: chk, error: erroChk }] = await Promise.all([
       supabase.from('empresas').select('*').order('created_at', { ascending: false }),
       supabase.from('perfis').select('id, empresa_id'),
       supabase.from('leads').select('*', { count: 'exact', head: true }),
       supabase.rpc('saude_empresas'),
+      supabase.rpc('checklist_implantacao'),
     ]);
+    if (erroChk) console.error('Checklist de implantação:', erroChk.message);
+    setChecklist((chk as ChecklistAuto[]) || []);
     if (erroSaude) console.error('Saúde dos clientes:', erroSaude.message);
     setSaude((sde as SaudeEmpresa[]) || []);
     setEmpresas((emps as EmpresaAdmin[]) || []);
@@ -121,20 +176,35 @@ export function useDashboard() {
   }, [supabase]);
 
   /** Onboarding completo: empresa → funil inicial → convite do admin. */
-  const criarEmpresa = useCallback(async (d: { nome: string; emailAdmin: string; plano: string; validoAte: string }) => {
+  /** Grava funil, mensagens e motivos do template. Funil só é trocado se a empresa não tiver leads. */
+  const gravarTemplate = useCallback(async (empresaId: string, tpl: TemplateSegmento, trocarFunil: boolean) => {
+    let etapasIds: string[] = [];
+    if (trocarFunil) {
+      await supabase.from('etapas_funil').delete().eq('empresa_id', empresaId);
+      const { data, error } = await supabase.from('etapas_funil')
+        .insert(tpl.etapas.map((e, i) => ({ empresa_id: empresaId, nome: e.nome, cor: e.cor, ordem: i + 1, probabilidade: e.probabilidade, dias_parado: e.dias_parado })))
+        .select('id, ordem');
+      if (error) throw new Error('O funil do template não foi gravado.');
+      etapasIds = [...(data ?? [])].sort((a, b) => a.ordem - b.ordem).map((e) => e.id as string);
+    }
+    const mensagens = tpl.mensagens
+      .filter((m) => m.etapa == null || etapasIds[m.etapa])
+      .map((m, i) => ({ empresa_id: empresaId, etapa_id: m.etapa == null ? null : etapasIds[m.etapa], titulo: m.titulo, texto: m.texto, ordem: i + 1 }));
+    if (mensagens.length) await supabase.from('modelos_mensagem').insert(mensagens);
+    await supabase.from('empresas').update({ segmento: tpl.id, motivos_perda: tpl.motivos }).eq('id', empresaId);
+  }, [supabase]);
+
+  const criarEmpresa = useCallback(async (d: { nome: string; emailAdmin: string; plano: string; validoAte: string; segmento: string }) => {
     try {
       const { data: emp, error } = await supabase.from('empresas').insert([{
         nome: d.nome, email: d.emailAdmin, plano: d.plano,
         valido_ate: d.validoAte ? new Date(d.validoAte).toISOString() : null, ativo: true,
+        implantacao: { inicio: new Date().toISOString() },
       }]).select().single();
       if (error) throw new Error('O banco recusou o cadastro da empresa.');
 
-      const { error: erroFunil } = await supabase.from('etapas_funil').insert([
-        { empresa_id: emp.id, nome: 'Aguardando Contato', cor: '#c99a06', ordem: 1 },
-        { empresa_id: emp.id, nome: 'Em Atendimento', cor: '#5d73e0', ordem: 2 },
-        { empresa_id: emp.id, nome: 'Venda Concluída', cor: '#1f8f4e', ordem: 3 },
-      ]);
-      if (erroFunil) console.error('Erro ao semear funil:', erroFunil);
+      const tpl = templatePorId(d.segmento) ?? TEMPLATES[0];
+      try { await gravarTemplate(emp.id, tpl, true); } catch (e) { console.error('Template:', e); }
 
       const r = await fetch('/api/equipe/convite', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -150,6 +220,34 @@ export function useDashboard() {
       toast.error('Não foi possível concluir a implementação', { description: e instanceof Error ? e.message : undefined });
       return false;
     }
+  }, [supabase, carregar, gravarTemplate]);
+
+  /** Aplica um template numa empresa existente (funil só se ela ainda não tiver leads). */
+  const aplicarTemplate = useCallback(async (emp: EmpresaAdmin, templateId: string) => {
+    const tpl = templatePorId(templateId);
+    if (!tpl) return false;
+    const leads = checklist.find((c) => c.empresa_id === emp.id)?.leads ?? 0;
+    try {
+      await gravarTemplate(emp.id, tpl, leads === 0);
+      toast.success(`Template "${tpl.nome}" aplicado em ${emp.nome}`, {
+        description: leads === 0 ? 'Funil, mensagens prontas e motivos de perda.' : 'A empresa já tem leads: o funil foi mantido; entraram mensagens e motivos de perda.',
+      });
+      void carregar();
+      return true;
+    } catch (e) {
+      toast.error('Não foi possível aplicar o template', { description: e instanceof Error ? e.message : undefined });
+      return false;
+    }
+  }, [checklist, gravarTemplate, carregar]);
+
+  /** Marca, desmarca ou dispensa um item manual do checklist. */
+  const marcarItem = useCallback(async (emp: EmpresaAdmin, itemId: string, valor: 'feito' | 'dispensado' | null) => {
+    const atual = { ...(emp.implantacao ?? {}) };
+    if (valor === null) delete atual[itemId];
+    else atual[itemId] = valor === 'feito' ? new Date().toISOString() : 'dispensado';
+    setEmpresas((prev) => prev.map((e) => (e.id === emp.id ? { ...e, implantacao: atual } : e)));
+    const { error } = await supabase.from('empresas').update({ implantacao: atual }).eq('id', emp.id);
+    if (error) { toast.error('Não foi possível salvar o checklist.'); void carregar(); }
   }, [supabase, carregar]);
 
   const salvarNome = useCallback(async (novo: string) => {
@@ -163,7 +261,7 @@ export function useDashboard() {
 
   const membros = useCallback((empresaId: string) => perfis.filter((p) => p.empresa_id === empresaId).length, [perfis]);
 
-  return { carregando, email, nome, empresas, perfis, totalLeads, saude, sair, alternarStatus, criarEmpresa, membros, salvarNome };
+  return { carregando, email, nome, empresas, perfis, totalLeads, saude, checklist, sair, alternarStatus, criarEmpresa, aplicarTemplate, marcarItem, membros, salvarNome };
 }
 
 export type Dashboard = ReturnType<typeof useDashboard>;

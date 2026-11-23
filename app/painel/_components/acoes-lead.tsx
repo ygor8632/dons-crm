@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { MOTIVOS_PADRAO } from '@/lib/templates-segmento';
 import type { Painel } from '../_lib/use-painel';
 import type { Lead } from '../_lib/tipos';
 import { diasParado, emAberto, grupoTarefa, linkWhatsApp, modelosParaLead, preencherModelo, proximaTarefa } from '../_lib/util';
@@ -23,7 +24,6 @@ const ouvintes = new Set<() => void>();
 const definir = (l: Lead | null) => { pedido = l; ouvintes.forEach((f) => f()); };
 export const pedirMotivoPerda = (l: Lead) => definir(l);
 
-const MOTIVOS = ['Preço', 'Sem resposta', 'Escolheu concorrente', 'Sem orçamento', 'Não era o momento'];
 
 export function MotivoPerdaHost({ crm }: { crm: Painel }) {
   const lead = useSyncExternalStore((f) => { ouvintes.add(f); return () => { ouvintes.delete(f); }; }, () => pedido, () => null);
@@ -51,7 +51,7 @@ export function MotivoPerdaHost({ crm }: { crm: Painel }) {
           <fieldset>
             <legend className="sr-only">Motivo</legend>
             <div className="flex flex-wrap gap-1.5">
-              {[...MOTIVOS, 'Outro'].map((m) => (
+              {[...(crm.empresa?.motivos_perda?.length ? crm.empresa.motivos_perda : MOTIVOS_PADRAO).filter((m) => m !== 'Outro'), 'Outro'].map((m) => (
                 <label key={m} className={cn('inline-flex h-9 cursor-pointer items-center rounded-full border px-3.5 text-[13px] font-medium transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-foreground', motivo === m ? 'border-transparent bg-foreground text-background' : 'border-glass-border hover:bg-pill-active')}>
                   <input type="radio" name="motivo" value={m} checked={motivo === m} onChange={() => setMotivo(m)} className="sr-only" />
                   {m}

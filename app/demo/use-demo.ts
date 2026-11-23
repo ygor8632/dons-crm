@@ -531,6 +531,12 @@ export function useDemoPainel() {
     toast.success(`Acesso de ${m.email} revogado`);
   }, [userId]);
 
+  const salvarMotivos = useCallback(async (motivos: string[] | null) => {
+    setEmpresa((e) => ({ ...e, motivos_perda: motivos }));
+    toast.success('Motivos de perda atualizados');
+    return true;
+  }, []);
+
   const gerarIconeApp = useCallback(async () => {
     toast('Na demonstração o ícone não é salvo', { description: 'No seu CRM, ele é gerado do logo e aparece na tela inicial do celular.' });
     return true;
@@ -541,6 +547,7 @@ export function useDemoPainel() {
     iconeApp: null,
     gerarIconeApp,
     appInstalavel: false,
+    salvarMotivos,
     userId,
     userEmail: EQUIPE.find((m) => m.id === userId)?.email ?? null,
     papel,
