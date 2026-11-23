@@ -537,6 +537,12 @@ export function useDemoPainel() {
     return true;
   }, []);
 
+  const salvarFundoLogo = useCallback(async (valor: string) => {
+    setEmpresa((e) => ({ ...e, cor_fundo_logo: valor }));
+    toast.success('Fundo do logo atualizado');
+    return true;
+  }, []);
+
   const gerarIconeApp = useCallback(async () => {
     toast('Na demonstração o ícone não é salvo', { description: 'No seu CRM, ele é gerado do logo e aparece na tela inicial do celular.' });
     return true;
@@ -548,6 +554,7 @@ export function useDemoPainel() {
     gerarIconeApp,
     appInstalavel: false,
     salvarMotivos,
+    salvarFundoLogo,
     userId,
     userEmail: EQUIPE.find((m) => m.id === userId)?.email ?? null,
     papel,

@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { createClient } from '@/utils/supabase/client';
 import { apagarImagem, enviarImagem, resolverImagens, type TipoImagem } from '@/lib/marca-storage';
 import { desenharIconeApp, enviarIconeApp, removerIconeApp } from '@/lib/icone-app';
+import { analisarLogo, FUNDO_CLARO, FUNDO_ESCURO } from '@/lib/marca-logo';
 import type { Anotacao, Atividade, BaseLegal, Empresa, Etapa, Lead, LinhaImportacao, Membro, Meta, ModeloMensagem, Movimento, Papel, RegistroAcesso, Tarefa, TipoAtividade } from './tipos';
 import { baixarJSON, emAberto, etapaFinal, nomeArquivo, proximaTarefa, rotuloBaseLegal } from './util';
 import { avisarComProximoPasso, emDias } from '../_components/proximo-passo';
@@ -32,6 +33,7 @@ export function usePainel() {
   const [movimentos, setMovimentos] = useState<Movimento[]>([]);
   // URLs exibíveis do logo e do fundo (links assinados do bucket privado)
   const [versaoIcone, setVersaoIcone] = useState(0);
+  const fundoLogoAnalisado = useRef(false);
   const [imagens, setImagens] = useState<{ logo: string | null; fundo: string | null }>({ logo: null, fundo: null });
   const cacheImagens = useRef(new Map<string, string | null>());
 
@@ -331,9 +333,22 @@ export function usePainel() {
       setEmpresa(nova);
       await atualizarImagens(nova.logo_url, nova.fundo_url);
       if (tipo === 'logo') {
-        // Ícone do app na tela inicial do celular, gerado do próprio arquivo enviado
         const url = URL.createObjectURL(arquivo);
-        try { await enviarIconeApp(supabase, empresa.id, await desenharIconeApp(url, empresa.cor_fundo_logo)); setVersaoIcone(Date.now()); } catch { /* o app usa as iniciais */ }
+        fundoLogoAnalisado.current = true;
+        try {
+          // Logo transparente ganha uma placa clara ou escura com contraste (se o admin não escolheu outra)
+          let fundo = empresa.cor_fundo_logo;
+          if (!fundo || fundo === 'transparent' || fundo === FUNDO_CLARO || fundo === FUNDO_ESCURO) {
+            const { sugestao } = await analisarLogo(url).catch(() => ({ sugestao: null }));
+            fundo = sugestao ?? 'transparent';
+            if (fundo !== empresa.cor_fundo_logo) {
+              await supabase.from('empresas').update({ cor_fundo_logo: fundo }).eq('id', empresa.id);
+              setEmpresa((e) => (e ? { ...e, cor_fundo_logo: fundo } : e));
+            }
+          }
+          // Ícone do app na tela inicial do celular, gerado do próprio arquivo enviado
+          await enviarIconeApp(supabase, empresa.id, await desenharIconeApp(url, fundo)); setVersaoIcone(Date.now());
+        } catch { /* o app usa as iniciais */ }
         finally { URL.revokeObjectURL(url); }
       }
       toast.success(tipo === 'logo' ? 'Logo atualizado' : 'Imagem de fundo aplicada', tipo === 'logo' ? { description: 'O ícone do app no celular também foi atualizado.' } : undefined);
@@ -357,6 +372,33 @@ export function usePainel() {
     await atualizarImagens(nova.logo_url, nova.fundo_url);
     toast.success(tipo === 'logo' ? 'Logo removido' : 'Voltamos ao fundo padrão');
   }, [empresa, supabase, atualizarImagens]);
+
+  /** Fundo atrás do logo: cor (#rrggbb) ou 'none' (sem fundo). Refaz o ícone do app. */
+  const salvarFundoLogo = useCallback(async (valor: string) => {
+    if (!empresa) return false;
+    const { error } = await supabase.from('empresas').update({ cor_fundo_logo: valor }).eq('id', empresa.id);
+    if (error) { toast.error('Não foi possível salvar o fundo do logo.'); return false; }
+    setEmpresa({ ...empresa, cor_fundo_logo: valor });
+    if (imagens.logo) {
+      try { await enviarIconeApp(supabase, empresa.id, await desenharIconeApp(imagens.logo, valor)); setVersaoIcone(Date.now()); } catch { /* segue com o ícone anterior */ }
+    }
+    toast.success('Fundo do logo atualizado');
+    return true;
+  }, [empresa, imagens.logo, supabase]);
+
+  // Logos enviados antes da análise: na primeira visita do admin, escolhe a placa com contraste
+  useEffect(() => {
+    if (fundoLogoAnalisado.current || papel !== 'admin' || !empresa || !imagens.logo) return;
+    if (empresa.cor_fundo_logo && empresa.cor_fundo_logo !== 'transparent') return;
+    fundoLogoAnalisado.current = true;
+    void analisarLogo(imagens.logo).then(async ({ sugestao }) => {
+      if (!sugestao) return;
+      const { error } = await supabase.from('empresas').update({ cor_fundo_logo: sugestao }).eq('id', empresa.id);
+      if (error) return;
+      setEmpresa((e) => (e ? { ...e, cor_fundo_logo: sugestao } : e));
+      toast('Ajustamos o fundo do seu logo', { description: 'Ele tem partes transparentes; agora aparece com contraste nos dois temas. Dá para mudar em Configurações › Marca.' });
+    }).catch(() => {});
+  }, [papel, empresa, imagens.logo, supabase]);
 
   /** Motivos de perda da empresa (null volta à lista padrão). */
   const salvarMotivos = useCallback(async (motivos: string[] | null) => {
@@ -577,7 +619,7 @@ export function usePainel() {
   const iconeApp = empresa ? `/api/app/${empresa.id}/icone/192?v=${(empresa.cor_primaria ?? '').replace('#', '')}-${versaoIcone}` : null;
 
   return {
-    carregando, iconeApp, gerarIconeApp, appInstalavel: true as boolean, salvarMotivos, userId, userEmail, papel, empresa, imagens, etapas, leads, equipe, tarefas, modelos, metas, movimentos, nomeUsuario,
+    carregando, iconeApp, gerarIconeApp, appInstalavel: true as boolean, salvarMotivos, salvarFundoLogo, userId, userEmail, papel, empresa, imagens, etapas, leads, equipe, tarefas, modelos, metas, movimentos, nomeUsuario,
     recarregar: carregar, sair,
     criarLead, moverLead, fecharLead, reabrirLead, salvarProbabilidadeLead, registrarWhatsApp, importarLeads, agendar,
     carregarFicha, adicionarAnotacao, apagarAnotacao, criarTarefa, alternarTarefa, apagarTarefa, reagendarTarefas,

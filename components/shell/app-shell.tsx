@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { estiloMarca, saudacao } from '@/lib/marca';
 import { iniciais } from '@/components/glass';
 import { useTema } from '@/components/theme/theme';
+import { fundoDoLogo } from '@/lib/marca-logo';
 
 /* ------------------------------------------------------------------ */
 /* Tipos                                                               */
@@ -128,7 +129,7 @@ function Fundo({ url }: { url?: string | null }) {
 /* ------------------------------------------------------------------ */
 
 function Avatar({ marca, className }: { marca: AppShellProps['marca']; className?: string }) {
-  const fundo = marca.corFundoLogo && marca.corFundoLogo !== 'transparent' ? marca.corFundoLogo : undefined;
+  const fundo = fundoDoLogo(marca.corFundoLogo);
   return (
     <span
       className={cn(
