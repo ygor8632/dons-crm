@@ -1,8 +1,8 @@
--- Ensaio da migration 20261122220000_lgpd. Cole DEPOIS do corpo da migration
+-- Ensaio da migration 20261123025936_lgpd. Cole DEPOIS do corpo da migration
 -- (sem begin/commit), tudo num único BEGIN; o último bloco lança erro com os resultados,
 -- forçando o ROLLBACK. IDs de 22/11/2026: admin 6b82b2d4 (Dons tech 8976ddf9), superadmin
 -- 29d9c75d, outra empresa Criaê 9b6de084. Usuários e leads de teste somem no rollback.
--- Rodado em 22/11/2026 antes de aplicar: ver resultado no commit.
+-- Rodado em 23/11/2026 antes de aplicar: 27/27 conforme o esperado.
 
 create table private._ensaio (ord serial, label text, res text);
 create function private._t(label text, q text) returns void language plpgsql as $f$
@@ -68,7 +68,9 @@ select private._t('A9 tarefa concluída sem texto pessoal (esperado Follow-up)',
 select private._t('A10 registro da anonimização com motivo (esperado Pedido por e-mail)', $q$select detalhes from logs_auditoria where entidade_id = '00000000-0000-0000-0000-0000000000d1' and acao = 'anonimizou'$q$);
 select private._t('A11 anonimização não gera registro duplicado de não contatar (esperado 0)', $q$select count(*) from logs_auditoria where entidade_id = '00000000-0000-0000-0000-0000000000d1' and acao = 'nao_contatar'$q$);
 select private._t('A12 admin: anonimiza lead de outra empresa (esperado ERRO)', $q$select public.anonimizar_lead('00000000-0000-0000-0000-0000000000d3')::text$q$);
-select private._t('A13 admin: exclui lead e fica registrado sem o nome (esperado Contato excluído)', $q$with x as (delete from leads where id = '00000000-0000-0000-0000-0000000000d2' returning 1) select (select count(*) from x) || ' ' || coalesce((select detalhes from logs_auditoria where entidade_id = '00000000-0000-0000-0000-0000000000d2' and acao = 'excluiu'), '-')$q$);
+-- A exclusão e a conferência ficam em chamadas separadas: numa mesma instrução, o trigger AFTER ainda não aparece.
+select private._t('A13a admin: exclui lead (esperado 1)', $q$with x as (delete from leads where id = '00000000-0000-0000-0000-0000000000d2' returning 1) select count(*) from x$q$);
+select private._t('A13b registro da exclusão sem o nome, com autor (esperado excluiu | Contato excluído)', $q$select string_agg(acao || ' | ' || detalhes, '; ') from logs_auditoria where entidade_id = '00000000-0000-0000-0000-0000000000d2'$q$);
 reset role;
 
 -- ===== ANÔNIMO =====
