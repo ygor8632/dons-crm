@@ -103,8 +103,9 @@ function AppCelular({ crm, className, admin }: { crm: Painel; className?: string
   const [gerando, setGerando] = useState(false);
   const nome = crm.empresa?.nome || 'CRM';
   const solida = corSolida(crm.empresa?.cor_primaria || COR_PADRAO);
-  const sigla = nome.trim().split(/\s+/).filter(Boolean);
-  const iniciais = ((sigla[0]?.[0] ?? 'C') + (sigla.length > 1 ? sigla[sigla.length - 1][0] : sigla[0]?.[1] ?? '')).toUpperCase();
+  const sigla = nome.trim().split(/\s+/).filter((p) => p && !/^(ltda|me|epp|eireli|s\/?a|sa|mei|cia|e|de|da|do|das|dos)\.?$/i.test(p));
+  const usar = sigla.length ? sigla : nome.trim().split(/\s+/);
+  const iniciais = ((usar[0]?.[0] ?? 'C') + (usar.length > 1 ? usar[usar.length - 1][0] : usar[0]?.[1] ?? '')).toUpperCase();
 
   return (
     <GlassCard className={cn('flex flex-col gap-5 sm:flex-row sm:items-center', className)}>
