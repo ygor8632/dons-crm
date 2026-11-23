@@ -80,6 +80,14 @@ export async function POST(request: Request) {
 
     const { nome, email, telefone, origem, valor } = validData.data;
 
+    // LGPD: o formulário pode mandar o consentimento (caixa marcada) ou a base legal
+    const aceite = body.consentimento ?? body.consent ?? body.aceite ?? body.lgpd;
+    const consentiu = aceite === true || ['true', 'sim', 'yes', '1', 'on'].includes(String(aceite ?? '').toLowerCase());
+    const BASES = ['consentimento', 'contrato', 'legitimo_interesse', 'obrigacao_legal'];
+    const baseInformada = typeof body.base_legal === 'string' && BASES.includes(body.base_legal) ? body.base_legal : null;
+    const base_legal = consentiu ? 'consentimento' : baseInformada;
+    const consentimento_em = base_legal === 'consentimento' ? new Date().toISOString() : null;
+
     // 4. Deduplicação: mesmo WhatsApp (DDD + 8 últimos dígitos, com ou sem 55/9º dígito)
     //    ou mesmo e-mail num lead EM ABERTO desta empresa. Em vez de criar outro lead,
     //    registra o novo contato no histórico do existente. Lead ganho/perdido: cria um novo.
@@ -122,7 +130,7 @@ export async function POST(request: Request) {
     // 6. Inserir a Lead com etapa_id
     const { data: novaLead, error: leadError } = await supabaseAdmin
       .from('leads')
-      .insert([{ empresa_id: empresa.id, nome, email, telefone, origem, valor, etapa_id: etapa.id }])
+      .insert([{ empresa_id: empresa.id, nome, email, telefone, origem, valor, etapa_id: etapa.id, base_legal, consentimento_em }])
       .select()
       .single();
 

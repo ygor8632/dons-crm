@@ -1,22 +1,22 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowRight, Check, ChevronDown, FileUp, Globe, Mail, MessageCircle, Percent, Phone, RotateCcw, Sparkles, StickyNote, Trash2, Trophy, XCircle } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, Download, FileUp, Globe, Mail, MessageCircle, Percent, Phone, RotateCcw, ShieldCheck, Sparkles, StickyNote, Trash2, Trophy, UserX, XCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Segmented } from '@/components/glass';
+import { Segmented, Toggle } from '@/components/glass';
 import { formatarMoeda } from '@/lib/marca';
 import { cn } from '@/lib/utils';
 import type { Painel } from '../_lib/use-painel';
-import type { Anotacao, Atividade, Lead, Tarefa, TipoAtividade } from '../_lib/tipos';
-import { acharDuplicados, formatarDataHora, grupoTarefa } from '../_lib/util';
+import type { Anotacao, Atividade, BaseLegal, Lead, RegistroAcesso, Tarefa, TipoAtividade } from '../_lib/tipos';
+import { acharDuplicados, BASES_LEGAIS, formatarDataHora, grupoTarefa, ROTULO_ACESSO } from '../_lib/util';
 import { BotaoWhatsApp, pedirMotivoPerda, SeloSituacao, SinaisLead } from './acoes-lead';
 
 type Aberto = { aberto: boolean; aoMudar: (v: boolean) => void };
 
-const VAZIO = { nome: '', email: '', telefone: '', origem: 'Adicionado manualmente', vendedor_id: '', valor: '', documento: '' };
+const VAZIO = { nome: '', email: '', telefone: '', origem: 'Adicionado manualmente', vendedor_id: '', valor: '', documento: '', base_legal: '' };
 const ORIGENS = ['Adicionado manualmente', 'WhatsApp', 'Instagram', 'Indicação', 'Site', 'Google'];
 
 /** Cadastro rápido: nome, WhatsApp e origem; o resto fica em "Mais detalhes". */
@@ -68,7 +68,7 @@ export function NovoLeadDialog({ crm, aberto, aoMudar, abrirLead }: { crm: Paine
           )}
 
           <button type="button" onClick={() => setMais((v) => !v)} aria-expanded={mais} className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
-            <ChevronDown className={cn('size-3.5 transition-transform duration-150', mais && 'rotate-180')} aria-hidden /> Mais detalhes (e-mail, valor, CPF/CNPJ{crm.papel === 'admin' && crm.equipe.length > 1 ? ', responsável' : ''})
+            <ChevronDown className={cn('size-3.5 transition-transform duration-150', mais && 'rotate-180')} aria-hidden /> Mais detalhes (e-mail, valor, CPF/CNPJ, base legal{crm.papel === 'admin' && crm.equipe.length > 1 ? ', responsável' : ''})
           </button>
           {mais && (
             <div className="space-y-4">
@@ -78,6 +78,13 @@ export function NovoLeadDialog({ crm, aberto, aoMudar, abrirLead }: { crm: Paine
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-2"><Label htmlFor="nl-doc">CPF ou CNPJ</Label><Input id="nl-doc" inputMode="numeric" {...campo('documento')} /></div>
+                <div className="space-y-2">
+                  <Label htmlFor="nl-base">Base legal (LGPD)</Label>
+                  <select id="nl-base" {...campo('base_legal')} className="h-10 w-full appearance-none rounded-xl border border-input bg-pill-active/55 px-3 text-[13px] dark:bg-white/6">
+                    <option value="">Não informada</option>
+                    {BASES_LEGAIS.map((b) => <option key={b.id} value={b.id}>{b.rotulo}</option>)}
+                  </select>
+                </div>
                 {crm.papel === 'admin' && crm.equipe.length > 1 && (
                   <div className="space-y-2">
                     <Label htmlFor="nl-resp">Responsável</Label>
@@ -130,7 +137,7 @@ export function ConvidarDialog({ crm, aberto, aoMudar }: { crm: Painel } & Abert
 
 /** Ficha do lead: contato, etapa, anotações e follow-ups. */
 export function FichaLeadDialog({ crm, lead, aoFechar }: { crm: Painel; lead: Lead | null; aoFechar: () => void }) {
-  const [aba, setAba] = useState<'anotacoes' | 'tarefas' | 'historico'>('anotacoes');
+  const [aba, setAba] = useState<'anotacoes' | 'tarefas' | 'historico' | 'privacidade'>('anotacoes');
   const [anotacoes, setAnotacoes] = useState<Anotacao[]>([]);
   const [atividades, setAtividades] = useState<Atividade[]>([]);
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
@@ -161,7 +168,7 @@ export function FichaLeadDialog({ crm, lead, aoFechar }: { crm: Painel; lead: Le
   useEffect(() => {
     // Busca da ficha: os setState acontecem depois do await.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (lead) void recarregar();
+    if (lead) { void recarregar(); void crm.registrarAcesso('visualizou', lead.id); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lead?.id]);
 
@@ -240,12 +247,14 @@ export function FichaLeadDialog({ crm, lead, aoFechar }: { crm: Painel; lead: Le
                 rotulo="Seções da ficha"
                 valor={aba}
                 aoMudar={setAba}
-                opcoes={[{ id: 'anotacoes', label: 'Anotações' }, { id: 'tarefas', label: 'Follow-ups' }, { id: 'historico', label: 'Histórico' }]}
+                opcoes={[{ id: 'anotacoes', label: 'Anotações' }, { id: 'tarefas', label: 'Follow-ups' }, { id: 'historico', label: 'Histórico' }, { id: 'privacidade', label: 'Privacidade' }]}
               />
             </div>
 
             <div className="flex-1 space-y-4 overflow-y-auto p-6">
-              {aba === 'historico' ? (
+              {aba === 'privacidade' ? (
+                <Privacidade crm={crm} lead={atual} aoAnonimizar={() => void recarregar()} />
+              ) : aba === 'historico' ? (
                 <Historico crm={crm} lead={atual} atividades={atividades} anotacoes={anotacoes} tarefas={tarefas} />
               ) : aba === 'anotacoes' ? (
                 <>
@@ -355,5 +364,127 @@ function Historico({ crm, lead, atividades, anotacoes, tarefas }: { crm: Painel;
         );
       })}
     </ol>
+  );
+}
+
+/** Aba Privacidade: base legal, não contatar, direitos do titular e quem acessou. */
+function Privacidade({ crm, lead, aoAnonimizar }: { crm: Painel; lead: Lead; aoAnonimizar: () => void }) {
+  const admin = crm.papel === 'admin';
+  const [acessos, setAcessos] = useState<RegistroAcesso[] | null>(null);
+  const [anonimizando, setAnonimizando] = useState(false);
+  const [motivo, setMotivo] = useState('');
+  const [ciente, setCiente] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const marca = `${lead.base_legal}|${lead.nao_contatar}|${lead.anonimizado_em}`;
+
+  useEffect(() => {
+    if (!admin) return;
+    let vivo = true;
+    void crm.carregarAcessos({ leadId: lead.id, limite: 20 }).then((r) => { if (vivo) setAcessos(r); });
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lead.id, admin, marca]);
+
+  const quem = (id?: string | null) => (id ? crm.equipe.find((m) => m.id === id)?.nome || crm.equipe.find((m) => m.id === id)?.email || 'Pessoa removida da equipe' : 'Sistema');
+  const anonimizar = async () => {
+    setEnviando(true);
+    if (await crm.anonimizarLead(lead.id, motivo)) { setAnonimizando(false); setMotivo(''); setCiente(false); aoAnonimizar(); }
+    setEnviando(false);
+  };
+
+  if (lead.anonimizado_em) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-2xl bg-pill-active/45 p-4 text-[13px] dark:bg-white/5">
+          <p className="flex items-center gap-2 font-medium"><ShieldCheck className="size-4 text-positive-foreground" aria-hidden /> Dados pessoais removidos em {formatarDataHora(lead.anonimizado_em)}</p>
+          <p className="mt-1 text-muted-foreground">Nome, contatos, CPF/CNPJ e anotações foram apagados. Ficaram só os números do funil (valor, etapa e datas), sem identificar a pessoa.</p>
+        </div>
+        {admin && <ListaAcessos acessos={acessos} quem={quem} />}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <section className="space-y-2">
+        <Label htmlFor="pv-base">Por que podemos guardar e usar este contato</Label>
+        <select
+          id="pv-base"
+          value={lead.base_legal ?? ''}
+          onChange={(e) => void crm.salvarPrivacidadeLead(lead.id, { base_legal: (e.target.value || null) as BaseLegal | null })}
+          className="h-10 w-full appearance-none rounded-xl border border-input bg-pill-active/55 px-3 text-[13px] dark:bg-white/6"
+        >
+          <option value="">Não informada</option>
+          {BASES_LEGAIS.map((b) => <option key={b.id} value={b.id}>{b.rotulo}</option>)}
+        </select>
+        <p className="text-xs text-muted-foreground">
+          {lead.base_legal ? BASES_LEGAIS.find((b) => b.id === lead.base_legal)?.dica : 'É a base legal da LGPD. Sem ela, fica difícil explicar de onde veio o contato se a pessoa perguntar.'}
+          {lead.base_legal === 'consentimento' && lead.consentimento_em && ` Registrado em ${formatarDataHora(lead.consentimento_em)}.`}
+        </p>
+        <p className="text-xs text-muted-foreground">Origem: <span className="text-foreground">{lead.origem || 'não informada'}</span> · cadastrado em {formatarDataHora(lead.created_at)}</p>
+      </section>
+
+      <section className="flex items-start justify-between gap-4 rounded-2xl bg-pill-active/45 p-3.5 dark:bg-white/5">
+        <div>
+          <p className="text-[13px] font-medium">Não contatar</p>
+          <p className="text-xs text-muted-foreground">A pessoa pediu para não receber mais mensagens. O WhatsApp fica bloqueado e o lead sai da tela Hoje.</p>
+        </div>
+        <Toggle ativo={!!lead.nao_contatar} aoMudar={(v) => void crm.salvarPrivacidadeLead(lead.id, { nao_contatar: v })} rotulo="Não contatar" />
+      </section>
+
+      {admin ? (
+        <section className="space-y-2">
+          <h3 className="text-[13px] font-semibold">Pedidos do titular</h3>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={() => void crm.exportarDadosLead(lead.id)}><Download /> Exportar dados (JSON)</Button>
+            {!anonimizando && <Button size="sm" variant="destructive" onClick={() => setAnonimizando(true)}><UserX /> Apagar dados pessoais…</Button>}
+          </div>
+          {anonimizando && (
+            <div className="space-y-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-3.5">
+              <p className="text-[13px]">Apaga nome, WhatsApp, e-mail, CPF/CNPJ, anotações e follow-ups pendentes deste contato. Valor, etapa e datas continuam nos relatórios, sem identificar a pessoa. <strong className="font-semibold">Não dá para desfazer.</strong></p>
+              <div className="space-y-1.5">
+                <Label htmlFor="pv-motivo">Motivo (fica no registro)</Label>
+                <Input id="pv-motivo" value={motivo} maxLength={200} onChange={(e) => setMotivo(e.target.value)} placeholder="Ex.: pedido por e-mail em 23/11" />
+              </div>
+              <label className="flex items-center gap-2 text-[13px]">
+                <input type="checkbox" checked={ciente} onChange={(e) => setCiente(e.target.checked)} className="size-4 accent-[var(--destructive)]" />
+                Entendo que os dados pessoais serão apagados de vez
+              </label>
+              <div className="flex gap-2">
+                <Button size="sm" variant="destructive" disabled={!ciente || enviando} onClick={anonimizar}>{enviando ? 'Apagando…' : 'Apagar dados pessoais'}</Button>
+                <Button size="sm" variant="ghost" onClick={() => { setAnonimizando(false); setCiente(false); }}>Cancelar</Button>
+              </div>
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">Antes de apagar, exporte e envie o arquivo à pessoa se ela pediu uma cópia.</p>
+        </section>
+      ) : (
+        <p className="text-xs text-muted-foreground">Pedido de cópia ou exclusão dos dados? Encaminhe para o administrador da conta.</p>
+      )}
+
+      {admin && <ListaAcessos acessos={acessos} quem={quem} />}
+    </div>
+  );
+}
+
+function ListaAcessos({ acessos, quem }: { acessos: RegistroAcesso[] | null; quem: (id?: string | null) => string }) {
+  return (
+    <section>
+      <h3 className="mb-2 text-[13px] font-semibold">Quem acessou este contato</h3>
+      {acessos === null ? (
+        <p className="text-xs text-muted-foreground">Carregando…</p>
+      ) : acessos.length === 0 ? (
+        <p className="text-xs text-muted-foreground">Nenhum acesso registrado ainda.</p>
+      ) : (
+        <ul className="divide-y divide-border rounded-2xl border border-border text-[13px]">
+          {acessos.map((a) => (
+            <li key={a.id} className="flex flex-wrap items-baseline justify-between gap-x-3 px-3 py-2">
+              <span><span className="font-medium">{quem(a.usuario_id)}</span> · {ROTULO_ACESSO[a.acao] ?? a.acao}{a.detalhes ? ` · ${a.detalhes}` : ''}</span>
+              <span className="text-xs text-muted-foreground">{formatarDataHora(a.created_at)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
