@@ -10,6 +10,19 @@ const nextConfig = {
     NEXT_PUBLIC_SUPABASE_ANON_KEY:
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_7n1rlQmw0m_S3fM_yg3QHw_hkmtKcS6',
   },
+  // Service worker sempre atualizado (o navegador não deve guardar versão velha)
+  async headers() {
+    return [
+      {
+        source: '/sw.js',
+        headers: [
+          { key: 'Content-Type', value: 'application/javascript; charset=utf-8' },
+          { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+          { key: 'Service-Worker-Allowed', value: '/' },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

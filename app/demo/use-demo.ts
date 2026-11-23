@@ -531,8 +531,16 @@ export function useDemoPainel() {
     toast.success(`Acesso de ${m.email} revogado`);
   }, [userId]);
 
+  const gerarIconeApp = useCallback(async () => {
+    toast('Na demonstração o ícone não é salvo', { description: 'No seu CRM, ele é gerado do logo e aparece na tela inicial do celular.' });
+    return true;
+  }, []);
+
   const crm: Painel = {
     carregando: false,
+    iconeApp: null,
+    gerarIconeApp,
+    appInstalavel: false,
     userId,
     userEmail: EQUIPE.find((m) => m.id === userId)?.email ?? null,
     papel,

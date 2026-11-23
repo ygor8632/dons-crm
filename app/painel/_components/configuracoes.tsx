@@ -9,7 +9,8 @@ import { Label } from '@/components/ui/label';
 import { HoldToDeleteButton } from '@/components/microkit/hold-to-delete-button';
 import { useTema } from '@/components/theme/theme';
 import { CampoNome } from '@/components/conta/campo-nome';
-import { COR_PADRAO, hexValido } from '@/lib/marca';
+import { COR_PADRAO, corSolida, hexValido } from '@/lib/marca';
+import { PassosIphone, useInstalacao } from '@/components/app/instalar';
 import type { TipoImagem } from '@/lib/marca-storage';
 import { cn } from '@/lib/utils';
 import type { Painel } from '../_lib/use-painel';
@@ -90,8 +91,52 @@ function Marca({ crm }: { crm: Painel }) {
           dica="Uma foto ampla e sem texto funciona melhor. Reduzimos para 2400 px; o vidro fica mais opaco sobre ela para manter a leitura."
           atual={crm.imagens.fundo}
         />
+        <AppCelular crm={crm} className="lg:col-span-12" admin />
       </div>
     </div>
+  );
+}
+
+/** Ícone e nome do app na tela inicial; para o admin, refazer o ícone a partir do logo. */
+function AppCelular({ crm, className, admin }: { crm: Painel; className?: string; admin?: boolean }) {
+  const { instalado, ios, podeInstalar, instalar } = useInstalacao();
+  const [gerando, setGerando] = useState(false);
+  const nome = crm.empresa?.nome || 'CRM';
+  const solida = corSolida(crm.empresa?.cor_primaria || COR_PADRAO);
+  const sigla = nome.trim().split(/\s+/).filter(Boolean);
+  const iniciais = ((sigla[0]?.[0] ?? 'C') + (sigla.length > 1 ? sigla[sigla.length - 1][0] : sigla[0]?.[1] ?? '')).toUpperCase();
+
+  return (
+    <GlassCard className={cn('flex flex-col gap-5 sm:flex-row sm:items-center', className)}>
+      <div className="flex shrink-0 flex-col items-center gap-1.5 rounded-[26px] bg-[linear-gradient(160deg,#30425f,#1b1716)] px-7 py-5" aria-label={`Prévia do ícone ${nome} na tela inicial`} role="img">
+        {crm.iconeApp ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={crm.iconeApp} alt="" width={64} height={64} className="size-16 rounded-[15px] shadow-lg" />
+        ) : (
+          <span className="grid size-16 place-items-center rounded-[15px] text-xl font-bold shadow-lg" style={{ background: solida.fundo, color: solida.texto }}>{iniciais}</span>
+        )}
+        <span className="max-w-24 truncate text-[11px] font-medium text-white">{nome}</span>
+      </div>
+      <div className="min-w-0 flex-1 space-y-2">
+        <CardTitle titulo="App no celular" descricao={`A equipe instala o ${nome} na tela inicial, com este ícone. Abre direto no CRM, em tela cheia.`} />
+        {admin && <p className="text-xs text-muted-foreground">O ícone sai do logo (com fundo branco) ou, sem logo, das iniciais na cor da marca. Ele se atualiza sozinho quando você troca o logo.</p>}
+        {instalado ? (
+          <p className="text-[13px] font-medium text-positive-foreground">Você está usando o app instalado.</p>
+        ) : ios ? (
+          <PassosIphone nome={nome} className="pt-1" />
+        ) : (
+          <p className="text-xs text-muted-foreground">No Android e no computador, use o botão abaixo ou o menu do navegador › Instalar app. No iPhone, abra no Safari › Compartilhar › Adicionar à Tela de Início.</p>
+        )}
+        <div className="flex flex-wrap gap-2 pt-1">
+          {!instalado && podeInstalar && <Button size="sm" onClick={() => void instalar()}><Download /> Instalar app</Button>}
+          {admin && (
+            <Button size="sm" variant="outline" disabled={gerando} onClick={async () => { setGerando(true); await crm.gerarIconeApp(); setGerando(false); }}>
+              {gerando ? 'Gerando…' : crm.imagens.logo ? 'Refazer ícone com o logo' : 'Atualizar ícone'}
+            </Button>
+          )}
+        </div>
+      </div>
+    </GlassCard>
   );
 }
 
@@ -388,7 +433,7 @@ function Privacidade({ crm }: { crm: Painel }) {
   return (
     <div className="space-y-5">
       <PageHeader titulo="Privacidade e LGPD" subtitulo="Por que cada contato está no CRM, quem acessou e como atender um pedido do titular." />
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 [&>*]:min-w-0">
         <GlassCard className="space-y-1">
           <CardTitle titulo="Sem base legal" />
           <p className="tabular text-3xl font-semibold">{semBase}</p>
@@ -493,6 +538,7 @@ function Perfil({ crm }: { crm: Painel }) {
             <Button size="sm" variant="outline" onClick={seguirSistema}>Seguir o sistema</Button>
           </div>
         </GlassCard>
+        <AppCelular crm={crm} className="md:col-span-2" />
       </div>
     </div>
   );

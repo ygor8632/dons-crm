@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { createClient } from '@/utils/supabase/client';
 import { apagarImagem, enviarImagem, resolverImagens, type TipoImagem } from '@/lib/marca-storage';
+import { desenharIconeApp, enviarIconeApp, removerIconeApp } from '@/lib/icone-app';
 import type { Anotacao, Atividade, BaseLegal, Empresa, Etapa, Lead, LinhaImportacao, Membro, Meta, ModeloMensagem, Movimento, Papel, RegistroAcesso, Tarefa, TipoAtividade } from './tipos';
 import { baixarJSON, emAberto, etapaFinal, nomeArquivo, proximaTarefa, rotuloBaseLegal } from './util';
 import { avisarComProximoPasso, emDias } from '../_components/proximo-passo';
@@ -30,6 +31,7 @@ export function usePainel() {
   const [metas, setMetas] = useState<Meta[]>([]);
   const [movimentos, setMovimentos] = useState<Movimento[]>([]);
   // URLs exibíveis do logo e do fundo (links assinados do bucket privado)
+  const [versaoIcone, setVersaoIcone] = useState(0);
   const [imagens, setImagens] = useState<{ logo: string | null; fundo: string | null }>({ logo: null, fundo: null });
   const cacheImagens = useRef(new Map<string, string | null>());
 
@@ -48,7 +50,12 @@ export function usePainel() {
 
   const carregar = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { router.push('/login'); return; }
+    if (!session) {
+      // Aberto pelo app instalado (start_url com ?empresa=): o login mostra a marca da empresa
+      const empresaApp = new URLSearchParams(window.location.search).get('empresa');
+      router.push(empresaApp ? `/login?empresa=${encodeURIComponent(empresaApp)}` : '/login');
+      return;
+    }
     setUserEmail(session.user.email ?? null);
     setUserId(session.user.id);
 
@@ -321,7 +328,13 @@ export function usePainel() {
       const nova = { ...empresa, [coluna]: caminho };
       setEmpresa(nova);
       await atualizarImagens(nova.logo_url, nova.fundo_url);
-      toast.success(tipo === 'logo' ? 'Logo atualizado' : 'Imagem de fundo aplicada');
+      if (tipo === 'logo') {
+        // Ícone do app na tela inicial do celular, gerado do próprio arquivo enviado
+        const url = URL.createObjectURL(arquivo);
+        try { await enviarIconeApp(supabase, empresa.id, await desenharIconeApp(url, empresa.cor_fundo_logo)); setVersaoIcone(Date.now()); } catch { /* o app usa as iniciais */ }
+        finally { URL.revokeObjectURL(url); }
+      }
+      toast.success(tipo === 'logo' ? 'Logo atualizado' : 'Imagem de fundo aplicada', tipo === 'logo' ? { description: 'O ícone do app no celular também foi atualizado.' } : undefined);
       return true;
     } catch (e) {
       toast.error(tipo === 'logo' ? 'Logo não enviado' : 'Fundo não enviado', { description: e instanceof Error ? e.message : undefined });
@@ -336,11 +349,27 @@ export function usePainel() {
     const { error } = await supabase.from('empresas').update({ [coluna]: null }).eq('id', empresa.id);
     if (error) { toast.error('Não foi possível remover a imagem.'); return; }
     await apagarImagem(supabase, anterior);
+    if (tipo === 'logo') { await removerIconeApp(supabase, empresa.id); setVersaoIcone(Date.now()); }
     const nova = { ...empresa, [coluna]: null };
     setEmpresa(nova);
     await atualizarImagens(nova.logo_url, nova.fundo_url);
     toast.success(tipo === 'logo' ? 'Logo removido' : 'Voltamos ao fundo padrão');
   }, [empresa, supabase, atualizarImagens]);
+
+  /** Refaz o ícone do app a partir do logo atual (ex.: logo enviado antes deste recurso). */
+  const gerarIconeApp = useCallback(async () => {
+    if (!empresa) return false;
+    try {
+      if (imagens.logo) await enviarIconeApp(supabase, empresa.id, await desenharIconeApp(imagens.logo, empresa.cor_fundo_logo));
+      else await removerIconeApp(supabase, empresa.id);
+      setVersaoIcone(Date.now());
+      toast.success(imagens.logo ? 'Ícone do app atualizado com o logo' : 'Sem logo: o app usa as iniciais na cor da marca');
+      return true;
+    } catch (e) {
+      toast.error('Não foi possível gerar o ícone', { description: e instanceof Error ? e.message : undefined });
+      return false;
+    }
+  }, [empresa, imagens.logo, supabase]);
 
   const salvarEtapa = useCallback(async (etapaId: string, patch: Partial<Pick<Etapa, 'probabilidade' | 'dias_parado' | 'nome'>>) => {
     const antes = etapas;
@@ -532,8 +561,11 @@ export function usePainel() {
     return eu?.nome || userEmail?.split('@')[0] || 'você';
   }, [equipe, userId, userEmail]);
 
+  // Ícone do app (rota do servidor); a versão força o navegador a buscar o novo
+  const iconeApp = empresa ? `/api/app/${empresa.id}/icone/192?v=${(empresa.cor_primaria ?? '').replace('#', '')}-${versaoIcone}` : null;
+
   return {
-    carregando, userId, userEmail, papel, empresa, imagens, etapas, leads, equipe, tarefas, modelos, metas, movimentos, nomeUsuario,
+    carregando, iconeApp, gerarIconeApp, appInstalavel: true as boolean, userId, userEmail, papel, empresa, imagens, etapas, leads, equipe, tarefas, modelos, metas, movimentos, nomeUsuario,
     recarregar: carregar, sair,
     criarLead, moverLead, fecharLead, reabrirLead, salvarProbabilidadeLead, registrarWhatsApp, importarLeads, agendar,
     carregarFicha, adicionarAnotacao, apagarAnotacao, criarTarefa, alternarTarefa, apagarTarefa, reagendarTarefas,
