@@ -51,7 +51,10 @@ export function nomeCurto(nome: string) {
   return primeira.length <= 12 ? primeira : nome.slice(0, 12);
 }
 
+const SUFIXOS = /^(ltda|me|epp|eireli|s\/?a|sa|mei|cia|& ?cia|e|de|da|do|das|dos)\.?$/i;
+
 export function iniciais(nome: string) {
-  const partes = nome.trim().split(/\s+/).filter(Boolean);
-  return ((partes[0]?.[0] ?? 'C') + (partes.length > 1 ? partes[partes.length - 1][0] : partes[0]?.[1] ?? '')).toUpperCase();
+  const partes = nome.trim().split(/\s+/).filter((p) => p && !SUFIXOS.test(p));
+  const usar = partes.length ? partes : nome.trim().split(/\s+/);
+  return ((usar[0]?.[0] ?? 'C') + (usar.length > 1 ? usar[usar.length - 1][0] : usar[0]?.[1] ?? '')).toUpperCase();
 }
