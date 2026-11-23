@@ -303,7 +303,7 @@ function Metas({ crm }: { crm: Painel }) {
     return (
       <div className="space-y-5">
         <PageHeader titulo="Metas" subtitulo="Sua meta e a do time. Conta o que foi marcado como ganho no mês." acoes={navegacao} />
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 [&>*]:min-w-0">
           <CartaoMeta crm={crm} leads={crm.leads} usuarioId={crm.userId} mesInicio={mes.inicio} />
           <CartaoMeta crm={crm} leads={crm.leads} usuarioId={null} mesInicio={mes.inicio} />
         </div>

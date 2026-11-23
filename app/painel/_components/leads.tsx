@@ -313,7 +313,7 @@ function Hoje({ crm, abrirLead, novoLead, irPara }: { crm: Painel; abrirLead: (l
           <EmptyState icone={PartyPopper} titulo="Tudo em dia" texto="Nenhum follow-up atrasado, todo lead em negociação tem um próximo passo e nada está parado." acao={<Button size="sm" variant="outline" onClick={() => irPara('leads', 'kanban')}>Ver o funil</Button>} />
         </GlassCard>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 [&>*]:min-w-0">
           {atrasadas.length > 0 && (
             <GlassCard>
               <TituloBloco titulo="Atrasados" n={atrasadas.length} tom="perigo" />
@@ -444,7 +444,7 @@ function Tarefas({ crm, abrirLead }: { crm: Painel; abrirLead: (l: Lead) => void
           <EmptyState icone={CalendarClock} titulo="Nenhum follow-up agendado" texto="Abra a ficha de um lead e agende o próximo retorno. Ele aparece aqui e no sino." />
         </GlassCard>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 [&>*]:min-w-0">
           {porGrupo.filter((g) => g.itens.length > 0).map((g) => (
             <GlassCard key={g.id}>
               <h2 className={cn('mb-3 flex items-center gap-2 text-[15px] font-semibold', g.id === 'atrasada' && 'text-destructive')}>

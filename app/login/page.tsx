@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
@@ -17,6 +17,20 @@ export default function LoginPage() {
   const [erro, setErro] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
+  const [marca, setMarca] = useState<{ id: string; nome: string; versao: string } | null>(null);
+
+  // Aberto pelo app instalado de uma empresa: mostra o nome e o ícone dela
+  useEffect(() => {
+    const doLink = new URLSearchParams(window.location.search).get('empresa');
+    const noApp = window.matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+    let lembrada: string | null = null;
+    try { lembrada = noApp ? localStorage.getItem('dons-empresa-app') : null; } catch { /* sem armazenamento */ }
+    const id = doLink || lembrada;
+    if (!id || !/^[0-9a-f-]{36}$/i.test(id)) return;
+    let vivo = true;
+    fetch(`/api/app/${id}/marca`).then((r) => r.json()).then((m) => { if (vivo && m?.id) setMarca(m); }).catch(() => {});
+    return () => { vivo = false; };
+  }, []);
 
   const entrar = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,15 +43,22 @@ export default function LoginPage() {
       return;
     }
     const { data: perfil } = await supabase.from('perfis').select('role').eq('id', data.user.id).single();
-    router.push(perfil?.role === 'superadmin' ? '/dashboard' : '/painel');
+    router.push(perfil?.role === 'superadmin' ? '/dashboard' : marca ? `/painel?empresa=${marca.id}` : '/painel');
   };
 
   return (
     <AuthLayout
-      titulo="Entrar no Dons CRM"
+      titulo={marca ? `Entrar no CRM da ${marca.nome}` : 'Entrar no Dons CRM'}
       subtitulo="Use o e-mail e a senha que você criou a partir do convite."
       rodape={<>Ainda não é cliente? <Link href="/demo" className="inline-block py-2 font-medium text-foreground underline underline-offset-4">Ver a demonstração</Link></>}
     >
+      {marca && (
+        <div className="mb-6 flex items-center gap-3 rounded-2xl bg-pill-active/55 p-3 dark:bg-white/6">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`/api/app/${marca.id}/icone/192?v=${marca.versao}`} alt="" width={44} height={44} className="size-11 rounded-xl shadow-sm" />
+          <p className="text-[13px]"><span className="font-semibold">{marca.nome}</span><span className="block text-xs text-muted-foreground">Acesso da equipe</span></p>
+        </div>
+      )}
       <form onSubmit={entrar} className="space-y-5" noValidate={false}>
         {erro && <AvisoErro>{erro}</AvisoErro>}
         <div className="space-y-2">

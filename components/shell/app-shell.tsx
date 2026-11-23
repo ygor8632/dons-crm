@@ -533,7 +533,7 @@ export function AppShell(props: AppShellProps) {
           className="glass fixed inset-x-3 top-[76px] bottom-0 z-10 overflow-y-auto rounded-t-[28px] border-b-0 md:top-[88px] md:right-4 md:left-[92px] md:rounded-t-[32px]"
         >
           <div className="mx-auto w-full max-w-[1320px] px-4 pt-6 pb-32 sm:px-6 md:px-10 md:pt-10">
-            {aviso && <div className="mb-6">{aviso}</div>}
+            {aviso && <div className="mb-6 empty:hidden">{aviso}</div>}
             <VisoesMobile secoes={secoes} secao={secao} visao={visao} aoNavegar={aoNavegar} />
             <div key={`${secao}:${visao}`} className="animate-surge">
               {children}

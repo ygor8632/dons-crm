@@ -13,6 +13,7 @@ import { Equipe } from './equipe';
 import { Configuracoes, Integracoes } from './configuracoes';
 import { ConvidarDialog, FichaLeadDialog, NovoLeadDialog } from './dialogos';
 import { MotivoPerdaHost } from './acoes-lead';
+import { ConviteApp, MarcaDoApp } from '@/components/app/instalar';
 import { Relatorios } from './relatorios';
 
 /** O painel do cliente inteiro, para qualquer fonte de dados (Supabase ou a demonstração). */
@@ -79,7 +80,7 @@ export function PainelApp({ crm, aviso }: { crm: Painel; aviso?: React.ReactNode
         aoSelecionar: (id) => { const t = crm.tarefas.find((x) => x.id === id); if (t) abrirLeadPorId(t.lead_id); },
       }}
       aoSair={crm.sair}
-      aviso={aviso}
+      aviso={aviso ?? (crm.appInstalavel && crm.empresa ? <ConviteApp nome={crm.empresa.nome || 'CRM'} icone={crm.iconeApp} /> : undefined)}
     >
       {nav.secao === 'visao' && <VisaoGeral crm={crm} visao={nav.visao} abrirLead={abrirLead} irPara={nav.navegar} novoLead={() => setNovoLead(true)} />}
       {nav.secao === 'leads' && <Leads crm={crm} visao={nav.visao} abrirLead={abrirLead} novoLead={() => setNovoLead(true)} irPara={nav.navegar} />}
@@ -90,6 +91,9 @@ export function PainelApp({ crm, aviso }: { crm: Painel; aviso?: React.ReactNode
 
       <NovoLeadDialog crm={crm} aberto={novoLead} aoMudar={setNovoLead} abrirLead={abrirLead} />
       <MotivoPerdaHost crm={crm} />
+      {crm.appInstalavel && crm.empresa && crm.iconeApp && (
+        <MarcaDoApp empresaId={crm.empresa.id} nome={crm.empresa.nome || 'CRM'} cor={crm.empresa.cor_primaria} versao={crm.iconeApp.split('v=')[1] ?? '0'} />
+      )}
       <ConvidarDialog crm={crm} aberto={convite} aoMudar={setConvite} />
       <FichaLeadDialog crm={crm} lead={leadAberto} aoFechar={() => setLeadAberto(null)} />
     </AppShell>
