@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { prepararImagem, type TipoImagem } from '@/lib/marca-storage';
 import type { Painel } from '../painel/_lib/use-painel';
-import type { Anotacao, Atividade, BaseLegal, Empresa, Etapa, Lead, LinhaImportacao, Membro, Meta, ModeloMensagem, Movimento, Papel, RegistroAcesso, Tarefa, TipoAtividade } from '../painel/_lib/tipos';
+import type { Anotacao, Atividade, BaseLegal, Empresa, Etapa, Lead, LinhaImportacao, Membro, Meta, ModeloMensagem, Movimento, Papel, RegistroAcesso, Tarefa, TipoAtividade, EnvioRelatorio } from '../painel/_lib/tipos';
 import { baixarJSON, emAberto, etapaFinal, nomeArquivo, proximaTarefa, rotuloBaseLegal } from '../painel/_lib/util';
 import { avisarComProximoPasso, emDias } from '../painel/_components/proximo-passo';
 
@@ -543,6 +543,17 @@ export function useDemoPainel() {
     return true;
   }, []);
 
+  const salvarEnvioRelatorio = useCallback(async (patch: { relatorio_email_ativo?: boolean; relatorio_emails_extras?: string[] }) => {
+    setEmpresa((e) => ({ ...e, ...patch }));
+    toast.success('relatorio_email_ativo' in patch ? (patch.relatorio_email_ativo ? 'Envio mensal ligado' : 'Envio mensal desligado') : 'Destinatários atualizados');
+    return true;
+  }, []);
+  const carregarEnviosRelatorio = useCallback(async () => [] as EnvioRelatorio[], []);
+  const enviarPreviaRelatorio = useCallback(async () => {
+    toast('Na demonstração nenhum e-mail é enviado', { description: 'No seu CRM, a prévia chega no seu e-mail na hora.' });
+    return true;
+  }, []);
+
   const gerarIconeApp = useCallback(async () => {
     toast('Na demonstração o ícone não é salvo', { description: 'No seu CRM, ele é gerado do logo e aparece na tela inicial do celular.' });
     return true;
@@ -555,6 +566,9 @@ export function useDemoPainel() {
     appInstalavel: false,
     salvarMotivos,
     salvarFundoLogo,
+    salvarEnvioRelatorio,
+    carregarEnviosRelatorio,
+    enviarPreviaRelatorio,
     userId,
     userEmail: EQUIPE.find((m) => m.id === userId)?.email ?? null,
     papel,
