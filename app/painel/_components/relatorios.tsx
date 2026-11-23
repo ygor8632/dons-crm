@@ -1,5 +1,6 @@
 'use client';
 
+import { fundoDoLogo } from '@/lib/marca-logo';
 import { useMemo, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { CalendarRange, ChevronLeft, ChevronRight, CircleDollarSign, Copy, Hourglass, Inbox, Percent, Printer, Target, Trophy } from 'lucide-react';
@@ -438,7 +439,7 @@ function PapelRelatorio({ crm, leads, d, mes, frases, impressao }: { crm: Painel
           <div className="flex items-center gap-3">
             {crm.imagens.logo ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={crm.imagens.logo} alt="" className="size-12 rounded-xl object-contain p-1" style={{ backgroundColor: crm.empresa?.cor_fundo_logo || 'transparent' }} />
+              <img src={crm.imagens.logo} alt="" className="size-12 rounded-xl object-contain p-1" style={{ backgroundColor: fundoDoLogo(crm.empresa?.cor_fundo_logo) ?? 'transparent' }} />
             ) : (
               <span className="grid size-12 place-items-center rounded-xl text-lg font-bold" style={{ backgroundColor: solida.fundo, color: solida.texto }} aria-hidden>{(crm.empresa?.nome || 'C').slice(0, 2).toUpperCase()}</span>
             )}

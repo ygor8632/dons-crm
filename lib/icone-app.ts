@@ -23,7 +23,7 @@ export async function desenharIconeApp(logoUrl: string, fundo?: string | null): 
   canvas.width = L; canvas.height = L;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Seu navegador não conseguiu criar o ícone.');
-  ctx.fillStyle = fundo && fundo !== 'transparent' ? fundo : '#ffffff';
+  ctx.fillStyle = fundo && fundo !== 'transparent' && fundo !== 'none' ? fundo : '#ffffff';
   ctx.fillRect(0, 0, L, L);
   const area = L * 0.6;
   const escala = Math.min(area / img.naturalWidth, area / img.naturalHeight);

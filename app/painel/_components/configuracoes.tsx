@@ -12,6 +12,8 @@ import { CampoNome } from '@/components/conta/campo-nome';
 import { COR_PADRAO, corSolida, hexValido } from '@/lib/marca';
 import { PassosIphone, useInstalacao } from '@/components/app/instalar';
 import { MOTIVOS_PADRAO } from '@/lib/templates-segmento';
+import { analisarLogo, FUNDO_CLARO, FUNDO_ESCURO, fundoDoLogo } from '@/lib/marca-logo';
+import { toast } from 'sonner';
 import type { TipoImagem } from '@/lib/marca-storage';
 import { cn } from '@/lib/utils';
 import type { Painel } from '../_lib/use-painel';
@@ -92,9 +94,76 @@ function Marca({ crm }: { crm: Painel }) {
           dica="Uma foto ampla e sem texto funciona melhor. Reduzimos para 2400 px; o vidro fica mais opaco sobre ela para manter a leitura."
           atual={crm.imagens.fundo}
         />
+        <FundoLogo crm={crm} className="lg:col-span-12" />
         <AppCelular crm={crm} className="lg:col-span-12" admin />
       </div>
     </div>
+  );
+}
+
+/** Placa atrás do logo: evita logo apagado (escuro no tema escuro, claro no tema claro). */
+function FundoLogo({ crm, className }: { crm: Painel; className?: string }) {
+  const atual = crm.empresa?.cor_fundo_logo ?? 'transparent';
+  const corMarca = crm.empresa?.cor_primaria || COR_PADRAO;
+  const [analisando, setAnalisando] = useState(false);
+  if (!crm.imagens.logo) return null;
+
+  const opcoes = [
+    { id: FUNDO_CLARO, rotulo: 'Branco' },
+    { id: FUNDO_ESCURO, rotulo: 'Escuro' },
+    { id: corMarca, rotulo: 'Cor da marca' },
+    { id: 'none', rotulo: 'Sem fundo' },
+  ];
+  const automatico = async () => {
+    setAnalisando(true);
+    try {
+      const { sugestao } = await analisarLogo(crm.imagens.logo!);
+      await crm.salvarFundoLogo(sugestao ?? 'none');
+    } catch { toast.error('Não foi possível analisar o logo.'); }
+    setAnalisando(false);
+  };
+  const fundo = fundoDoLogo(atual);
+  const amostra = (tema: 'claro' | 'escuro') => (
+    <div className={cn('flex flex-1 items-center gap-3 rounded-2xl p-4', tema === 'claro' ? 'bg-[#efe6de] text-[#1b1716]' : 'bg-[#1f1a19] text-[#f3ece6]')}>
+      <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-full shadow-[inset_0_0_0_1px_rgb(127_127_127/0.25)]" style={{ backgroundColor: fundo ?? 'transparent' }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={crm.imagens.logo!} alt="" className="size-full object-contain p-1" />
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-[13px] font-semibold">{crm.empresa?.nome}</span>
+        <span className="block text-xs opacity-70">Tema {tema}</span>
+      </span>
+    </div>
+  );
+
+  return (
+    <GlassCard className={cn('space-y-4', className)}>
+      <CardTitle titulo="Fundo do logo" descricao="Logos com partes transparentes podem sumir sobre o vidro. Um fundo atrás do logo garante que ele apareça nos dois temas." />
+      <div className="flex flex-col gap-3 sm:flex-row" aria-label="Prévia do logo nos temas claro e escuro" role="group">
+        {amostra('claro')}
+        {amostra('escuro')}
+      </div>
+      <div className="flex flex-wrap items-center gap-2" role="radiogroup" aria-label="Fundo do logo">
+        <Button size="sm" variant="outline" disabled={analisando} onClick={automatico}>{analisando ? 'Analisando…' : 'Automático'}</Button>
+        {opcoes.map((o) => {
+          const ativo = (o.id === 'none' ? !fundo : fundo?.toLowerCase() === o.id.toLowerCase());
+          return (
+            <button
+              key={o.rotulo}
+              type="button"
+              role="radio"
+              aria-checked={ativo}
+              onClick={() => void crm.salvarFundoLogo(o.id)}
+              className={cn('inline-flex h-8 items-center gap-2 rounded-full border px-3 text-xs font-medium', ativo ? 'border-transparent bg-foreground text-background' : 'border-glass-border hover:bg-pill-active dark:hover:bg-white/10')}
+            >
+              {o.id !== 'none' && <span className="size-3 rounded-full shadow-[inset_0_0_0_1px_rgb(127_127_127/0.4)]" style={{ backgroundColor: o.id }} aria-hidden />}
+              {o.rotulo}
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-xs text-muted-foreground">“Automático” olha as cores do logo e escolhe branco ou escuro, o que der mais contraste. O ícone do app no celular acompanha.</p>
+    </GlassCard>
   );
 }
 
@@ -121,7 +190,7 @@ function AppCelular({ crm, className, admin }: { crm: Painel; className?: string
       </div>
       <div className="min-w-0 flex-1 space-y-2">
         <CardTitle titulo="App no celular" descricao={`A equipe instala o ${nome} na tela inicial, com este ícone. Abre direto no CRM, em tela cheia.`} />
-        {admin && <p className="text-xs text-muted-foreground">O ícone sai do logo (com fundo branco) ou, sem logo, das iniciais na cor da marca. Ele se atualiza sozinho quando você troca o logo.</p>}
+        {admin && <p className="text-xs text-muted-foreground">O ícone sai do logo (sobre o fundo do logo escolhido acima, ou branco) ou, sem logo, das iniciais na cor da marca. Ele se atualiza sozinho quando você troca o logo.</p>}
         {instalado ? (
           <p className="text-[13px] font-medium text-positive-foreground">Você está usando o app instalado.</p>
         ) : ios ? (
@@ -173,7 +242,7 @@ function EnvioImagem({ crm, tipo, titulo, dica, atual, className }: { crm: Paine
         {atual ? (
           tipo === 'logo' ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={atual} alt={`Logo atual de ${crm.empresa?.nome ?? 'sua empresa'}`} className="max-h-28 max-w-[70%] object-contain" />
+            <img src={atual} alt={`Logo atual de ${crm.empresa?.nome ?? 'sua empresa'}`} className="max-h-28 max-w-[70%] rounded-xl object-contain p-2" style={{ backgroundColor: fundoDoLogo(crm.empresa?.cor_fundo_logo) }} />
           ) : (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
