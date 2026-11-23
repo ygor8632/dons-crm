@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { prepararImagem, type TipoImagem } from '@/lib/marca-storage';
 import type { Painel } from '../painel/_lib/use-painel';
-import type { Anotacao, Atividade, Empresa, Etapa, Lead, LinhaImportacao, Membro, Meta, ModeloMensagem, Movimento, Papel, Tarefa, TipoAtividade } from '../painel/_lib/tipos';
-import { emAberto, etapaFinal, proximaTarefa } from '../painel/_lib/util';
+import type { Anotacao, Atividade, BaseLegal, Empresa, Etapa, Lead, LinhaImportacao, Membro, Meta, ModeloMensagem, Movimento, Papel, RegistroAcesso, Tarefa, TipoAtividade } from '../painel/_lib/tipos';
+import { baixarJSON, emAberto, etapaFinal, nomeArquivo, proximaTarefa, rotuloBaseLegal } from '../painel/_lib/util';
 import { avisarComProximoPasso, emDias } from '../painel/_components/proximo-passo';
 
 /*
@@ -78,6 +78,10 @@ function leadsIniciais(): Lead[] {
     // Alguns leads sem atividade há dias, para aparecerem como "parados"
     etapa_desde: etapa === 'e4' ? dias(-Math.floor(d * 0.3)) : dias(-Math.floor(d * 0.4)),
     ultima_atividade_em: dias(-Math.min(d, [0, 1, 4].includes(i) ? 0 : d)),
+    // LGPD: base legal conforme a origem; Facebook fica sem informar, para mostrar o aviso
+    base_legal: origem === 'Site' ? 'consentimento' : origem === 'WhatsApp' || origem === 'Indicação' ? 'contrato' : origem === 'Facebook' ? null : 'legitimo_interesse',
+    consentimento_em: origem === 'Site' ? dias(-d) : null,
+    nao_contatar: i === 7,
   }));
 }
 
@@ -138,6 +142,15 @@ function modelosIniciais(): ModeloMensagem[] {
     { id: 'm1', etapa_id: 'e1', titulo: 'Primeiro contato', texto: 'Olá, {primeiro_nome}! Aqui é {vendedor}, da {empresa}. Vi seu interesse e queria entender melhor o que você procura. Podemos conversar hoje?', ordem: 1 },
     { id: 'm2', etapa_id: 'e3', titulo: 'Retorno da proposta', texto: 'Oi, {primeiro_nome}! Conseguiu ver a proposta que enviei? Fico à disposição para ajustar o que precisar.', ordem: 2 },
     { id: 'm3', etapa_id: null, titulo: 'Agradecimento', texto: 'Obrigado pelo retorno, {primeiro_nome}! Qualquer dúvida, é só chamar.', ordem: 3 },
+  ];
+}
+
+function acessosIniciais(): RegistroAcesso[] {
+  const h = (horas: number) => new Date(Date.now() - horas * 3600e3).toISOString();
+  return [
+    { id: 'r1', created_at: h(3), usuario_id: 'demo-carlos', acao: 'visualizou', entidade: 'lead', entidade_id: 'l2' },
+    { id: 'r2', created_at: h(26), usuario_id: 'demo-bia', acao: 'visualizou', entidade: 'lead', entidade_id: 'l90' },
+    { id: 'r3', created_at: h(50), usuario_id: EU, acao: 'base_legal', entidade: 'lead', entidade_id: 'l1', detalhes: 'Base legal: Consentimento' },
   ];
 }
 
@@ -228,14 +241,14 @@ export function useDemoPainel() {
     toast.success(`Agendado: ${descricao.toLowerCase()} em ${quando.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })}`);
   }, [setTarefas]);
 
-  const criarLead = useCallback(async (d: { nome: string; email: string; telefone: string; origem: string; vendedor_id: string; valor: string; documento?: string }) => {
+  const criarLead = useCallback(async (d: { nome: string; email: string; telefone: string; origem: string; vendedor_id: string; valor: string; documento?: string; base_legal?: string }) => {
     await espera();
     const resp = papel === 'vendedor' ? userId : d.vendedor_id || null;
     setLeads((prev) => [{
       id: novoId('l'), empresa_id: EMPRESA_ID, nome: d.nome, email: d.email || null, telefone: d.telefone || null,
       origem: d.origem, etapa_id: etapas[0]?.id, valor: parseFloat(d.valor) || 0, vendedor_id: resp,
       vendedor: resp ? { nome: nomeDe(resp) } : null, created_at: new Date().toISOString(),
-      documento: d.documento?.trim() || null, situacao: 'aberto', etapa_desde: new Date().toISOString(), ultima_atividade_em: new Date().toISOString(),
+      documento: d.documento?.trim() || null, base_legal: (d.base_legal || null) as Lead['base_legal'], consentimento_em: d.base_legal === 'consentimento' ? new Date().toISOString() : null, situacao: 'aberto', etapa_desde: new Date().toISOString(), ultima_atividade_em: new Date().toISOString(),
     }, ...prev]);
     toast.success(`${d.nome} entrou no funil`);
     return true;
@@ -453,6 +466,65 @@ export function useDemoPainel() {
     return true;
   }, [userId]);
 
+  /* ---------- LGPD (em memória) ---------- */
+  const acessos = useRef<RegistroAcesso[]>(acessosIniciais());
+  const vistos = useRef(new Map<string, number>());
+  const anotarAcesso = useCallback((acao: string, leadId?: string | null, detalhes?: string) => {
+    acessos.current = [{ id: novoId('r'), created_at: new Date().toISOString(), usuario_id: userId, acao, entidade: 'lead', entidade_id: leadId ?? null, detalhes: detalhes ?? null }, ...acessos.current];
+  }, [userId]);
+
+  const registrarAcesso = useCallback(async (acao: string, leadId?: string | null, detalhes?: string) => {
+    if (acao === 'visualizou' && leadId) {
+      if (Date.now() - (vistos.current.get(leadId) ?? 0) < 10 * 60e3) return;
+      vistos.current.set(leadId, Date.now());
+    }
+    anotarAcesso(acao, leadId, detalhes);
+  }, [anotarAcesso]);
+
+  const salvarPrivacidadeLead = useCallback(async (id: string, patch: { base_legal?: BaseLegal | null; nao_contatar?: boolean }) => {
+    const corpo: Partial<Lead> = { ...patch };
+    if ('base_legal' in patch) corpo.consentimento_em = patch.base_legal === 'consentimento' ? new Date().toISOString() : null;
+    setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, ...corpo } : l)));
+    if ('base_legal' in patch) anotarAcesso('base_legal', id, `Base legal: ${rotuloBaseLegal(patch.base_legal)}`);
+    else anotarAcesso('nao_contatar', id, patch.nao_contatar ? 'Marcado para não contatar' : 'Pode voltar a ser contatado');
+    toast.success('base_legal' in patch ? `Base legal: ${rotuloBaseLegal(patch.base_legal)}` : patch.nao_contatar ? 'Marcado para não contatar' : 'Pode voltar a ser contatado');
+  }, [anotarAcesso]);
+
+  const exportarDadosLead = useCallback(async (id: string) => {
+    const lead = todosLeads.find((l) => l.id === id);
+    if (!lead) return;
+    const etapa = (eid?: string | null) => etapas.find((e) => e.id === eid)?.nome ?? null;
+    baixarJSON(`dados-${nomeArquivo(lead.nome)}.json`, {
+      gerado_em: new Date().toISOString(), controlador: empresa.nome,
+      contato: { nome: lead.nome, email: lead.email ?? null, telefone: lead.telefone ?? null, cpf_cnpj: lead.documento ?? null, origem: lead.origem ?? null, cadastrado_em: lead.created_at, base_legal: rotuloBaseLegal(lead.base_legal), consentimento_em: lead.consentimento_em ?? null, nao_contatar: !!lead.nao_contatar },
+      negociacao: { etapa: etapa(lead.etapa_id), situacao: lead.situacao ?? 'aberto', valor: lead.valor ?? 0, responsavel: lead.vendedor?.nome ?? null },
+      anotacoes: (anotacoes.current[id] ?? []).map((n) => ({ texto: n.texto, created_at: n.created_at })),
+      follow_ups: tarefasRef.current.filter((t) => t.lead_id === id).map((t) => ({ descricao: t.descricao, data_vencimento: t.data_vencimento, concluida: t.concluida })),
+      atividades: (atividades.current[id] ?? []).map((a) => ({ tipo: a.tipo, descricao: a.descricao, created_at: a.created_at })),
+      historico_de_etapas: todosMovimentos.filter((m) => m.lead_id === id).map((m) => ({ de: etapa(m.de_etapa_id), para: etapa(m.para_etapa_id), em: m.created_at })),
+    });
+    anotarAcesso('exportou', id);
+    toast.success('Arquivo com os dados do contato baixado');
+  }, [todosLeads, etapas, empresa, todosMovimentos, anotarAcesso]);
+
+  const anonimizarLead = useCallback(async (id: string, motivo?: string) => {
+    if (papel !== 'admin') { toast.error('Só o administrador pode anonimizar contatos.'); return false; }
+    await espera();
+    const agora = new Date().toISOString();
+    setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, nome: 'Contato removido', email: null, telefone: null, documento: null, chave_telefone: null, consentimento_em: null, nao_contatar: true, anonimizado_em: agora } : l)));
+    setTarefas((prev) => prev.filter((t) => t.lead_id !== id || t.concluida).map((t) => (t.lead_id === id ? { ...t, descricao: 'Follow-up' } : t)));
+    anotacoes.current = { ...anotacoes.current, [id]: [] };
+    atividades.current = { ...atividades.current, [id]: (atividades.current[id] ?? []).map((a) => ({ ...a, descricao: null })) };
+    anotarAcesso('anonimizou', id, motivo?.trim() || 'Pedido do titular');
+    toast.success('Dados pessoais apagados. Os números do funil foram mantidos.');
+    return true;
+  }, [papel, setTarefas, anotarAcesso]);
+
+  const carregarAcessos = useCallback(async (filtro: { leadId?: string; limite?: number } = {}) => {
+    if (papel !== 'admin') return [];
+    return acessos.current.filter((r) => !filtro.leadId || r.entidade_id === filtro.leadId).slice(0, filtro.limite ?? 200);
+  }, [papel]);
+
   const removerMembro = useCallback(async (m: Membro) => {
     if (m.id === userId) { toast.error('Você não pode remover o seu próprio acesso.'); return; }
     setEquipe((prev) => prev.filter((x) => x.id !== m.id));
@@ -479,6 +551,7 @@ export function useDemoPainel() {
     criarLead, moverLead, fecharLead, reabrirLead, salvarProbabilidadeLead, registrarWhatsApp, importarLeads, agendar,
     carregarFicha, adicionarAnotacao, apagarAnotacao, criarTarefa, alternarTarefa, apagarTarefa, reagendarTarefas,
     salvarEtapa, salvarModelo, apagarModelo, salvarMeta,
+    registrarAcesso, salvarPrivacidadeLead, exportarDadosLead, anonimizarLead, carregarAcessos,
     salvarMarca, enviarMarca, removerMarca, adicionarEtapa, removerEtapa, convidar, mudarPapel, removerMembro, salvarNome,
   };
 

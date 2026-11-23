@@ -1,4 +1,4 @@
-import type { Etapa, Lead, LinhaImportacao, ModeloMensagem, Tarefa } from './tipos';
+import type { BaseLegal, Etapa, Lead, LinhaImportacao, ModeloMensagem, Tarefa } from './tipos';
 
 export function abrirWhatsApp(telefone?: string | null) {
   if (!telefone) return;
@@ -83,7 +83,7 @@ export function proximaTarefa(lead: Lead, tarefas: Tarefa[]) {
 
 /** Dias desde a última atividade, se passou do prazo da etapa ("parado"). */
 export function diasParado(lead: Lead, etapas: Etapa[], agora = Date.now()) {
-  if (!emAberto(lead, etapas)) return null;
+  if (!emAberto(lead, etapas) || lead.nao_contatar) return null;
   const prazo = etapas.find((e) => e.id === lead.etapa_id)?.dias_parado;
   if (!prazo) return null;
   const ref = lead.ultima_atividade_em || lead.etapa_desde || lead.created_at;
@@ -92,7 +92,7 @@ export function diasParado(lead: Lead, etapas: Etapa[], agora = Date.now()) {
 }
 
 /** Em negociação e sem nenhum follow-up pendente. */
-export const semProximoPasso = (lead: Lead, etapas: Etapa[], tarefas: Tarefa[]) => emAberto(lead, etapas) && !proximaTarefa(lead, tarefas);
+export const semProximoPasso = (lead: Lead, etapas: Etapa[], tarefas: Tarefa[]) => emAberto(lead, etapas) && !lead.nao_contatar && !proximaTarefa(lead, tarefas);
 
 /** Ordem do Kanban: atrasados, hoje, sem próximo passo, futuros (por data). */
 export function ordenarPorProximaAtividade(leads: Lead[], tarefas: Tarefa[], agora = new Date()) {
@@ -214,3 +214,31 @@ export function montarLinhas(linhas: string[][], mapa: CampoImportacao[]) {
   }
   return { validas, semNome };
 }
+
+/* ---------------- LGPD ---------------- */
+
+export const BASES_LEGAIS: { id: BaseLegal; rotulo: string; dica: string }[] = [
+  { id: 'consentimento', rotulo: 'Consentimento', dica: 'A pessoa autorizou o contato (ex.: marcou a caixa no formulário).' },
+  { id: 'contrato', rotulo: 'Pedido de orçamento ou contrato', dica: 'A pessoa pediu proposta, orçamento ou já é cliente.' },
+  { id: 'legitimo_interesse', rotulo: 'Legítimo interesse', dica: 'Contato comercial esperado pela pessoa, com opção de sair.' },
+  { id: 'obrigacao_legal', rotulo: 'Obrigação legal', dica: 'Dado guardado porque a lei exige (ex.: nota fiscal).' },
+];
+
+export const rotuloBaseLegal = (b?: BaseLegal | null) => BASES_LEGAIS.find((x) => x.id === b)?.rotulo ?? 'Não informada';
+
+export const ROTULO_ACESSO: Record<string, string> = {
+  visualizou: 'Abriu a ficha', exportou: 'Exportou os dados', anonimizou: 'Anonimizou', excluiu: 'Excluiu',
+  base_legal: 'Mudou a base legal', nao_contatar: 'Mudou "não contatar"', exportou_lista: 'Exportou a lista de leads',
+};
+
+/** Arquivo JSON para entregar ao titular (portabilidade / acesso, art. 18). */
+export function baixarJSON(nomeArquivo: string, dados: unknown) {
+  const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = nomeArquivo;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+export const nomeArquivo = (nome: string) => nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'contato';

@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { createClient } from '@/utils/supabase/client';
 import { apagarImagem, enviarImagem, resolverImagens, type TipoImagem } from '@/lib/marca-storage';
-import type { Anotacao, Atividade, Empresa, Etapa, Lead, LinhaImportacao, Membro, Meta, ModeloMensagem, Movimento, Papel, Tarefa, TipoAtividade } from './tipos';
-import { emAberto, etapaFinal, proximaTarefa } from './util';
+import type { Anotacao, Atividade, BaseLegal, Empresa, Etapa, Lead, LinhaImportacao, Membro, Meta, ModeloMensagem, Movimento, Papel, RegistroAcesso, Tarefa, TipoAtividade } from './tipos';
+import { baixarJSON, emAberto, etapaFinal, nomeArquivo, proximaTarefa, rotuloBaseLegal } from './util';
 import { avisarComProximoPasso, emDias } from '../_components/proximo-passo';
 
 /**
@@ -114,13 +114,14 @@ export function usePainel() {
     toast.success(`Agendado: ${descricao.toLowerCase()} em ${quando.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })}`);
   }, [empresa, userId, supabase]);
 
-  const criarLead = useCallback(async (dados: { nome: string; email: string; telefone: string; origem: string; vendedor_id: string; valor: string; documento?: string }) => {
+  const criarLead = useCallback(async (dados: { nome: string; email: string; telefone: string; origem: string; vendedor_id: string; valor: string; documento?: string; base_legal?: string }) => {
     if (!empresa || etapas.length === 0) { toast.error('Crie ao menos uma etapa do funil antes de adicionar leads.'); return false; }
     const responsavel = papel === 'vendedor' ? userId : dados.vendedor_id || null;
     const { error } = await supabase.from('leads').insert([{
       nome: dados.nome, email: dados.email || null, telefone: dados.telefone || null, origem: dados.origem,
       etapa_id: etapas[0].id, empresa_id: empresa.id, vendedor_id: responsavel, valor: parseFloat(dados.valor) || 0,
       documento: dados.documento?.trim() || null,
+      base_legal: dados.base_legal || null, consentimento_em: dados.base_legal === 'consentimento' ? new Date().toISOString() : null,
     }]);
     if (error) { toast.error('Não foi possível salvar o lead.', { description: 'Tente de novo em instantes.' }); return false; }
     toast.success(`${dados.nome} entrou no funil`);
@@ -455,6 +456,75 @@ export function usePainel() {
     else { toast.success(`Acesso de ${membro.email} revogado`); void carregar(); }
   }, [userId, supabase, carregar]);
 
+  /* ---------- LGPD ---------- */
+
+  // Uma visualização por contato a cada 10 minutos já basta para o registro
+  const vistos = useRef(new Map<string, number>());
+
+  const registrarAcesso = useCallback(async (acao: string, leadId?: string | null, detalhes?: string) => {
+    if (!empresa || !userId) return;
+    if (acao === 'visualizou' && leadId) {
+      const ultimo = vistos.current.get(leadId) ?? 0;
+      if (Date.now() - ultimo < 10 * 60e3) return;
+      vistos.current.set(leadId, Date.now());
+    }
+    await supabase.from('logs_auditoria').insert([{ empresa_id: empresa.id, usuario_id: userId, acao, entidade: 'lead', entidade_id: leadId ?? null, detalhes: detalhes ?? null }]);
+  }, [empresa, userId, supabase]);
+
+  const salvarPrivacidadeLead = useCallback(async (leadId: string, patch: { base_legal?: BaseLegal | null; nao_contatar?: boolean }) => {
+    const corpo: Partial<Lead> = { ...patch };
+    if ('base_legal' in patch) corpo.consentimento_em = patch.base_legal === 'consentimento' ? new Date().toISOString() : null;
+    if (await gravarLead(leadId, corpo)) {
+      toast.success('base_legal' in patch ? `Base legal: ${rotuloBaseLegal(patch.base_legal)}` : patch.nao_contatar ? 'Marcado para não contatar' : 'Pode voltar a ser contatado');
+    }
+  }, [gravarLead]);
+
+  /** Junta tudo o que o CRM guarda sobre o contato e baixa em JSON (pedido de acesso/portabilidade). */
+  const exportarDadosLead = useCallback(async (leadId: string) => {
+    const lead = leads.find((l) => l.id === leadId);
+    if (!lead) return;
+    const [{ data: notas }, { data: tasks }, { data: ativ }, { data: movs }] = await Promise.all([
+      supabase.from('lead_anotacoes').select('texto, created_at').eq('lead_id', leadId).order('created_at'),
+      supabase.from('tarefas').select('descricao, data_vencimento, concluida').eq('lead_id', leadId).order('data_vencimento'),
+      supabase.from('lead_atividades').select('tipo, descricao, created_at').eq('lead_id', leadId).order('created_at'),
+      supabase.from('lead_movimentos').select('de_etapa_id, para_etapa_id, created_at').eq('lead_id', leadId).order('created_at'),
+    ]);
+    const etapa = (id?: string | null) => etapas.find((e) => e.id === id)?.nome ?? null;
+    baixarJSON(`dados-${nomeArquivo(lead.nome)}.json`, {
+      gerado_em: new Date().toISOString(),
+      controlador: empresa?.nome,
+      contato: {
+        nome: lead.nome, email: lead.email ?? null, telefone: lead.telefone ?? null, cpf_cnpj: lead.documento ?? null,
+        origem: lead.origem ?? null, cadastrado_em: lead.created_at,
+        base_legal: rotuloBaseLegal(lead.base_legal), consentimento_em: lead.consentimento_em ?? null, nao_contatar: !!lead.nao_contatar,
+      },
+      negociacao: { etapa: etapa(lead.etapa_id), situacao: lead.situacao ?? 'aberto', valor: lead.valor ?? 0, responsavel: lead.vendedor?.nome ?? null },
+      anotacoes: notas ?? [], follow_ups: tasks ?? [], atividades: ativ ?? [],
+      historico_de_etapas: (movs ?? []).map((m) => ({ de: etapa(m.de_etapa_id), para: etapa(m.para_etapa_id), em: m.created_at })),
+    });
+    void registrarAcesso('exportou', leadId);
+    toast.success('Arquivo com os dados do contato baixado');
+  }, [leads, etapas, empresa, supabase, registrarAcesso]);
+
+  const anonimizarLead = useCallback(async (leadId: string, motivo?: string) => {
+    const { error } = await supabase.rpc('anonimizar_lead', { alvo: leadId, motivo: motivo ?? null });
+    if (error) { toast.error(error.code === '42501' ? 'Só o administrador pode anonimizar contatos.' : 'Não foi possível anonimizar o contato.'); return false; }
+    const agora = new Date().toISOString();
+    setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, nome: 'Contato removido', email: null, telefone: null, documento: null, chave_telefone: null, consentimento_em: null, nao_contatar: true, anonimizado_em: agora } : l)));
+    setTarefas((prev) => prev.filter((t) => t.lead_id !== leadId || t.concluida).map((t) => (t.lead_id === leadId ? { ...t, descricao: 'Follow-up' } : t)));
+    toast.success('Dados pessoais apagados. Os números do funil foram mantidos.');
+    return true;
+  }, [supabase]);
+
+  /** Registro de acessos (só admin lê, pelo RLS). */
+  const carregarAcessos = useCallback(async (filtro: { leadId?: string; limite?: number } = {}) => {
+    if (!empresa) return [] as RegistroAcesso[];
+    let q = supabase.from('logs_auditoria').select('id, created_at, usuario_id, acao, entidade, entidade_id, detalhes').eq('empresa_id', empresa.id);
+    if (filtro.leadId) q = q.eq('entidade_id', filtro.leadId);
+    const { data } = await q.order('created_at', { ascending: false }).limit(filtro.limite ?? 200);
+    return (data as RegistroAcesso[]) ?? [];
+  }, [empresa, supabase]);
+
   /* ---------- Derivados ---------- */
 
   const nomeUsuario = useMemo(() => {
@@ -468,6 +538,7 @@ export function usePainel() {
     criarLead, moverLead, fecharLead, reabrirLead, salvarProbabilidadeLead, registrarWhatsApp, importarLeads, agendar,
     carregarFicha, adicionarAnotacao, apagarAnotacao, criarTarefa, alternarTarefa, apagarTarefa, reagendarTarefas,
     salvarEtapa, salvarModelo, apagarModelo, salvarMeta,
+    registrarAcesso, salvarPrivacidadeLead, exportarDadosLead, anonimizarLead, carregarAcessos,
     salvarMarca, enviarMarca, removerMarca, adicionarEtapa, removerEtapa, convidar, mudarPapel, removerMembro, salvarNome,
   };
 }

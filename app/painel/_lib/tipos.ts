@@ -37,6 +37,24 @@ export type Lead = {
   etapa_desde?: string;
   ultima_atividade_em?: string;
   chave_telefone?: string | null;
+  /** LGPD: base legal do tratamento, consentimento, oposição e anonimização. */
+  base_legal?: BaseLegal | null;
+  consentimento_em?: string | null;
+  nao_contatar?: boolean;
+  anonimizado_em?: string | null;
+};
+
+export type BaseLegal = 'consentimento' | 'contrato' | 'legitimo_interesse' | 'obrigacao_legal';
+
+/** Linha do registro de acessos (logs_auditoria). */
+export type RegistroAcesso = {
+  id: string;
+  created_at: string;
+  usuario_id?: string | null;
+  acao: string;
+  entidade: string;
+  entidade_id?: string | null;
+  detalhes?: string | null;
 };
 
 export type TipoAtividade = 'whatsapp' | 'ligacao' | 'email' | 'etapa' | 'ganho' | 'perdido' | 'reaberto' | 'webhook' | 'importacao';

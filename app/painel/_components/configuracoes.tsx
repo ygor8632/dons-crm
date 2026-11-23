@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Check, Copy, Download, FileUp, ImageUp, MessageSquareText, Moon, Plus, Sun } from 'lucide-react';
 import { CardTitle, GlassCard, PageHeader, Toggle } from '@/components/glass';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,8 @@ import { COR_PADRAO, hexValido } from '@/lib/marca';
 import type { TipoImagem } from '@/lib/marca-storage';
 import { cn } from '@/lib/utils';
 import type { Painel } from '../_lib/use-painel';
-import { acharDuplicados, CAMPOS_IMPORTACAO, lerPlanilha, montarLinhas, preencherModelo, type CampoImportacao } from '../_lib/util';
+import type { RegistroAcesso } from '../_lib/tipos';
+import { acharDuplicados, CAMPOS_IMPORTACAO, lerPlanilha, montarLinhas, preencherModelo, ROTULO_ACESSO, formatarDataHora, type CampoImportacao } from '../_lib/util';
 
 /* ---------------- Configurações: Marca · Funil · Perfil ---------------- */
 
@@ -21,6 +22,7 @@ export function Configuracoes({ crm, visao }: { crm: Painel; visao: string }) {
   if (visao === 'marca' && crm.papel === 'admin') return <Marca crm={crm} />;
   if (visao === 'funil' && crm.papel === 'admin') return <Funil crm={crm} />;
   if (visao === 'mensagens' && crm.papel === 'admin') return <Mensagens crm={crm} />;
+  if (visao === 'privacidade' && crm.papel === 'admin') return <Privacidade crm={crm} />;
   return <Perfil crm={crm} />;
 }
 
@@ -358,6 +360,110 @@ function Mensagens({ crm }: { crm: Painel }) {
   );
 }
 
+/* ---------------- Privacidade (LGPD) ---------------- */
+
+function Privacidade({ crm }: { crm: Painel }) {
+  const [registros, setRegistros] = useState<RegistroAcesso[] | null>(null);
+  const [acao, setAcao] = useState('todas');
+  const [busca, setBusca] = useState('');
+  const [versao, setVersao] = useState(0);
+
+  useEffect(() => {
+    let vivo = true;
+    void crm.carregarAcessos({ limite: 500 }).then((r) => { if (vivo) setRegistros(r); });
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [versao]);
+
+  const quem = (id?: string | null) => (id ? crm.equipe.find((m) => m.id === id)?.nome || crm.equipe.find((m) => m.id === id)?.email || 'Pessoa removida' : 'Sistema');
+  const contato = (id?: string | null) => (id ? crm.leads.find((l) => l.id === id)?.nome ?? 'Contato excluído' : '—');
+  const termo = busca.trim().toLowerCase();
+  const filtrados = (registros ?? []).filter((r) => (acao === 'todas' || r.acao === acao) && (!termo || contato(r.entidade_id).toLowerCase().includes(termo) || quem(r.usuario_id).toLowerCase().includes(termo)));
+
+  const abertos = crm.leads.filter((l) => !l.anonimizado_em);
+  const semBase = abertos.filter((l) => !l.base_legal).length;
+  const naoContatar = abertos.filter((l) => l.nao_contatar).length;
+  const anonimizados = crm.leads.filter((l) => l.anonimizado_em).length;
+
+  return (
+    <div className="space-y-5">
+      <PageHeader titulo="Privacidade e LGPD" subtitulo="Por que cada contato está no CRM, quem acessou e como atender um pedido do titular." />
+      <div className="grid gap-4 lg:grid-cols-3">
+        <GlassCard className="space-y-1">
+          <CardTitle titulo="Sem base legal" />
+          <p className="tabular text-3xl font-semibold">{semBase}</p>
+          <p className="text-xs text-muted-foreground">{semBase === 0 ? 'Todo contato tem o motivo registrado.' : 'Contatos sem o motivo registrado. Defina na ficha › Privacidade.'}</p>
+        </GlassCard>
+        <GlassCard className="space-y-1">
+          <CardTitle titulo="Não contatar" />
+          <p className="tabular text-3xl font-semibold">{naoContatar}</p>
+          <p className="text-xs text-muted-foreground">Pediram para não receber mensagens. O WhatsApp fica bloqueado para eles.</p>
+        </GlassCard>
+        <GlassCard className="space-y-1">
+          <CardTitle titulo="Dados apagados" />
+          <p className="tabular text-3xl font-semibold">{anonimizados}</p>
+          <p className="text-xs text-muted-foreground">Contatos anonimizados a pedido. Os números do funil continuam.</p>
+        </GlassCard>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)]">
+        <GlassCard className="min-w-0 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle titulo="Registro de acessos" descricao="Ninguém, nem o administrador, consegue alterar ou apagar estas linhas." />
+            <Button size="sm" variant="outline" onClick={() => setVersao((v) => v + 1)}>Atualizar</Button>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Filtrar por contato ou pessoa" aria-label="Filtrar registro" className="sm:max-w-xs" />
+            <select value={acao} onChange={(e) => setAcao(e.target.value)} aria-label="Filtrar por ação" className={cn(SELECT, 'h-10 sm:max-w-56')}>
+              <option value="todas">Todas as ações</option>
+              {Object.entries(ROTULO_ACESSO).map(([id, rotulo]) => <option key={id} value={id}>{rotulo}</option>)}
+            </select>
+          </div>
+          <div className="max-h-[480px] overflow-auto rounded-2xl border border-border">
+            <table className="w-full min-w-[560px] text-left text-[13px]">
+              <thead className="sticky top-0 bg-background/90 text-xs text-muted-foreground backdrop-blur">
+                <tr><th className="px-3 py-2 font-medium">Quando</th><th className="px-3 py-2 font-medium">Quem</th><th className="px-3 py-2 font-medium">O quê</th><th className="px-3 py-2 font-medium">Contato</th></tr>
+              </thead>
+              <tbody>
+                {registros === null && <tr><td colSpan={4} className="px-3 py-8 text-center text-xs text-muted-foreground">Carregando…</td></tr>}
+                {registros !== null && filtrados.length === 0 && <tr><td colSpan={4} className="px-3 py-8 text-center text-xs text-muted-foreground">{registros.length === 0 ? 'Nada registrado ainda. Abrir uma ficha já gera a primeira linha.' : 'Nenhuma linha com esse filtro.'}</td></tr>}
+                {filtrados.map((r) => (
+                  <tr key={r.id} className="border-t border-border align-top">
+                    <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">{formatarDataHora(r.created_at)}</td>
+                    <td className="px-3 py-2">{quem(r.usuario_id)}</td>
+                    <td className="px-3 py-2">{ROTULO_ACESSO[r.acao] ?? r.acao}{r.detalhes && <span className="block text-xs text-muted-foreground">{r.detalhes}</span>}</td>
+                    <td className="max-w-[200px] truncate px-3 py-2">{contato(r.entidade_id)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-muted-foreground">Ficam registrados: abrir a ficha (uma vez a cada 10 minutos por pessoa), exportar, apagar dados, excluir, e mudanças de base legal ou de “não contatar”.</p>
+        </GlassCard>
+
+        <GlassCard className="space-y-3 self-start">
+          <CardTitle titulo="Pedido do titular, passo a passo" />
+          <ol className="space-y-2.5 text-[13px]">
+            {[
+              ['Confirme quem está pedindo', 'Responda pelo mesmo WhatsApp ou e-mail do cadastro.'],
+              ['Ache o contato', 'Use a busca do topo e abra a ficha › Privacidade.'],
+              ['Cópia dos dados', 'Exportar dados gera um arquivo com tudo o que o CRM guarda. Envie à pessoa.'],
+              ['Exclusão', 'Apagar dados pessoais remove nome, contatos e anotações. O motivo fica no registro.'],
+              ['Parar de contatar', 'Se a pessoa só não quer mais mensagens, ligue “Não contatar”.'],
+            ].map(([t, d], i) => (
+              <li key={t} className="flex gap-2.5">
+                <span className="tabular grid size-5 shrink-0 place-items-center rounded-full bg-foreground text-[11px] font-semibold text-background">{i + 1}</span>
+                <span><span className="font-medium">{t}.</span> <span className="text-muted-foreground">{d}</span></span>
+              </li>
+            ))}
+          </ol>
+          <p className="text-xs text-muted-foreground">A LGPD dá até 15 dias para a resposta completa ao titular (art. 19). Na dúvida jurídica, fale com o encarregado de dados da empresa.</p>
+        </GlassCard>
+      </div>
+    </div>
+  );
+}
+
 function Perfil({ crm }: { crm: Painel }) {
   const { escuro, alternar, seguirSistema } = useTema();
   return (
@@ -426,7 +532,12 @@ function Webhook({ crm }: { crm: Painel }) {
 Content-Type: application/json
 
 { "nome": "Maria Silva", "telefone": "11999990000",
-  "email": "maria@exemplo.com", "origem": "Site", "valor": 1500 }`}</pre>
+  "email": "maria@exemplo.com", "origem": "Site", "valor": 1500,
+  "consentimento": true }`}</pre>
+        <p className="text-xs text-muted-foreground">
+          <span className="font-mono text-foreground">consentimento: true</span> registra que a pessoa marcou a caixa de autorização no formulário (LGPD), com data e hora.
+          Também aceita <span className="font-mono text-foreground">base_legal</span>: consentimento, contrato, legitimo_interesse ou obrigacao_legal.
+        </p>
       </GlassCard>
     </div>
   );

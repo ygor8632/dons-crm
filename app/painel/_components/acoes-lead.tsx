@@ -2,7 +2,8 @@
 
 import { useState, useSyncExternalStore } from 'react';
 import { Menu } from '@base-ui/react/menu';
-import { AlarmClock, ArrowRight, CircleSlash, Hourglass, MessageCircle, MoreHorizontal, RotateCcw, Trophy, XCircle } from 'lucide-react';
+import { toast } from 'sonner';
+import { AlarmClock, ArrowRight, BellOff, CircleSlash, Hourglass, MessageCircle, MoreHorizontal, RotateCcw, Trophy, XCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -118,6 +119,23 @@ export function MenuLead({ crm, lead, className }: { crm: Painel; lead: Lead; cl
 
 export function BotaoWhatsApp({ crm, lead, variante = 'icone' }: { crm: Painel; lead: Lead; variante?: 'icone' | 'botao' }) {
   if (!lead.telefone) return null;
+  if (lead.nao_contatar) {
+    // Oposição do titular: o botão continua visível, mas avisa em vez de abrir a conversa
+    return (
+      <button
+        type="button"
+        aria-disabled="true"
+        aria-label={variante === 'icone' ? `WhatsApp de ${lead.nome} (pediu para não ser contatado)` : undefined}
+        onClick={() => toast.warning(`${lead.nome} pediu para não ser contatado`, { description: 'Para mudar, abra a ficha › Privacidade.' })}
+        className={variante === 'icone'
+          ? 'grid size-7 shrink-0 cursor-not-allowed place-items-center rounded-full text-muted-foreground/60'
+          : 'inline-flex h-8 cursor-not-allowed items-center gap-1.5 rounded-full border border-glass-border px-3 text-xs font-medium text-muted-foreground'}
+      >
+        <BellOff className="size-3.5" aria-hidden={variante !== 'icone'} />
+        {variante === 'botao' && 'Não contatar'}
+      </button>
+    );
+  }
   const modelos = modelosParaLead(crm.modelos, lead);
   const abrir = (texto?: string, titulo?: string) => {
     window.open(linkWhatsApp(lead.telefone!, texto), '_blank', 'noopener');
@@ -175,7 +193,8 @@ export function BotaoWhatsApp({ crm, lead, variante = 'icone' }: { crm: Painel; 
 /** O que pede atenção neste lead, em ordem de urgência (no máximo dois sinais). */
 export function sinaisDoLead(crm: Painel, lead: Lead, agora = new Date()) {
   const sinais: { id: string; texto: string; tom: 'perigo' | 'atencao' | 'neutro'; icone: typeof AlarmClock }[] = [];
-  if (!emAberto(lead, crm.etapas)) return sinais;
+  if (lead.nao_contatar && !lead.anonimizado_em) sinais.push({ id: 'nao-contatar', texto: 'Não contatar', tom: 'neutro', icone: BellOff });
+  if (!emAberto(lead, crm.etapas) || lead.nao_contatar) return sinais;
   const t = proximaTarefa(lead, crm.tarefas);
   if (t) {
     const g = grupoTarefa(t, agora);
