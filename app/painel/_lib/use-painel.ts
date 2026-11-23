@@ -222,6 +222,8 @@ export function usePainel() {
       .select('id');
     if (error) { toast.error('Não foi possível importar', { description: 'O banco recusou a planilha. Confira as colunas e tente de novo.' }); return false; }
     const ids = (data || []).map((d: { id: string }) => d.id);
+    // Histórico de cada lead (e o checklist de implantação da Dons) registra a importação
+    if (ids.length && userId) void supabase.from('lead_atividades').insert(ids.map((id) => ({ empresa_id: empresa.id, lead_id: id, usuario_id: userId, tipo: 'importacao', descricao: 'Importado da planilha' })));
     toast.success(`${ids.length} ${ids.length === 1 ? 'lead importado' : 'leads importados'}`, {
       duration: 12000,
       action: {
@@ -355,6 +357,16 @@ export function usePainel() {
     await atualizarImagens(nova.logo_url, nova.fundo_url);
     toast.success(tipo === 'logo' ? 'Logo removido' : 'Voltamos ao fundo padrão');
   }, [empresa, supabase, atualizarImagens]);
+
+  /** Motivos de perda da empresa (null volta à lista padrão). */
+  const salvarMotivos = useCallback(async (motivos: string[] | null) => {
+    if (!empresa) return false;
+    const { error } = await supabase.from('empresas').update({ motivos_perda: motivos }).eq('id', empresa.id);
+    if (error) { toast.error('Não foi possível salvar os motivos de perda.'); return false; }
+    setEmpresa({ ...empresa, motivos_perda: motivos });
+    toast.success('Motivos de perda atualizados');
+    return true;
+  }, [empresa, supabase]);
 
   /** Refaz o ícone do app a partir do logo atual (ex.: logo enviado antes deste recurso). */
   const gerarIconeApp = useCallback(async () => {
@@ -565,7 +577,7 @@ export function usePainel() {
   const iconeApp = empresa ? `/api/app/${empresa.id}/icone/192?v=${(empresa.cor_primaria ?? '').replace('#', '')}-${versaoIcone}` : null;
 
   return {
-    carregando, iconeApp, gerarIconeApp, appInstalavel: true as boolean, userId, userEmail, papel, empresa, imagens, etapas, leads, equipe, tarefas, modelos, metas, movimentos, nomeUsuario,
+    carregando, iconeApp, gerarIconeApp, appInstalavel: true as boolean, salvarMotivos, userId, userEmail, papel, empresa, imagens, etapas, leads, equipe, tarefas, modelos, metas, movimentos, nomeUsuario,
     recarregar: carregar, sair,
     criarLead, moverLead, fecharLead, reabrirLead, salvarProbabilidadeLead, registrarWhatsApp, importarLeads, agendar,
     carregarFicha, adicionarAnotacao, apagarAnotacao, criarTarefa, alternarTarefa, apagarTarefa, reagendarTarefas,

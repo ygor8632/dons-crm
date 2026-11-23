@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Check, Copy, Download, FileUp, ImageUp, MessageSquareText, Moon, Plus, Sun } from 'lucide-react';
+import { Check, Copy, Download, FileUp, ImageUp, MessageSquareText, Moon, Plus, Sun, X } from 'lucide-react';
 import { CardTitle, GlassCard, PageHeader, Toggle } from '@/components/glass';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import { useTema } from '@/components/theme/theme';
 import { CampoNome } from '@/components/conta/campo-nome';
 import { COR_PADRAO, corSolida, hexValido } from '@/lib/marca';
 import { PassosIphone, useInstalacao } from '@/components/app/instalar';
+import { MOTIVOS_PADRAO } from '@/lib/templates-segmento';
 import type { TipoImagem } from '@/lib/marca-storage';
 import { cn } from '@/lib/utils';
 import type { Painel } from '../_lib/use-painel';
@@ -271,7 +272,50 @@ function Funil({ crm }: { crm: Painel }) {
           <Button type="submit"><Plus /> Adicionar</Button>
         </form>
       </GlassCard>
+      <MotivosPerda crm={crm} />
     </div>
+  );
+}
+
+/** Motivos oferecidos ao marcar um lead como perdido (alimentam o relatório de perdas). */
+function MotivosPerda({ crm }: { crm: Painel }) {
+  const atuais = crm.empresa?.motivos_perda?.length ? crm.empresa.motivos_perda : MOTIVOS_PADRAO;
+  const [lista, setLista] = useState<string[]>(atuais);
+  const [novo, setNovo] = useState('');
+  const [salvando, setSalvando] = useState(false);
+  const mudou = lista.join('|') !== atuais.join('|');
+
+  const adicionar = (e: React.FormEvent) => {
+    e.preventDefault();
+    const m = novo.trim().replace(/\s+/g, ' ');
+    if (!m || lista.some((x) => x.toLowerCase() === m.toLowerCase()) || lista.length >= 11) return;
+    setLista([...lista, m.slice(0, 50)]);
+    setNovo('');
+  };
+  const salvar = async () => { setSalvando(true); await crm.salvarMotivos(lista.length ? lista : null); setSalvando(false); };
+
+  return (
+    <GlassCard className="max-w-3xl space-y-3">
+      <CardTitle titulo="Motivos de perda" descricao="Aparecem como opções ao marcar um lead como perdido. “Outro” sempre fica disponível." />
+      <ul className="flex flex-wrap gap-1.5">
+        {lista.map((m) => (
+          <li key={m} className="inline-flex h-8 items-center gap-1 rounded-full border border-glass-border bg-pill-active/50 pr-1 pl-3 text-[13px] dark:bg-white/6">
+            {m}
+            <button type="button" onClick={() => setLista(lista.filter((x) => x !== m))} aria-label={`Remover motivo ${m}`} className="grid size-6 place-items-center rounded-full text-muted-foreground hover:bg-pill-active hover:text-foreground dark:hover:bg-white/10">
+              <X className="size-3.5" />
+            </button>
+          </li>
+        ))}
+      </ul>
+      <form onSubmit={adicionar} className="flex gap-2">
+        <Input value={novo} onChange={(e) => setNovo(e.target.value)} placeholder="Novo motivo, ex.: Prazo de entrega" aria-label="Novo motivo de perda" maxLength={50} />
+        <Button type="submit" variant="outline" disabled={!novo.trim() || lista.length >= 11}><Plus /> Incluir</Button>
+      </form>
+      <div className="flex flex-wrap gap-2">
+        <Button disabled={!mudou || salvando || lista.length === 0} onClick={salvar}>{salvando ? 'Salvando…' : 'Salvar motivos'}</Button>
+        {crm.empresa?.motivos_perda && <Button variant="ghost" onClick={() => { setLista(MOTIVOS_PADRAO); void crm.salvarMotivos(null); }}>Voltar ao padrão</Button>}
+      </div>
+    </GlassCard>
   );
 }
 

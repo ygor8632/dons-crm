@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Check, ShieldCheck } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AuthLayout, AvisoErro } from '@/components/site/auth-layout';
 import { CampoSenha } from '@/components/site/campo-senha';
@@ -26,26 +27,40 @@ export default function RedefinirSenha() {
   const [sucesso, setSucesso] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [linkInvalido, setLinkInvalido] = useState(false);
+  // Convite: quem ainda não tem nome cadastrado informa aqui
+  const [pedirNome, setPedirNome] = useState(false);
+  const [nome, setNome] = useState('');
 
   // O link do e-mail cria uma sessão temporária; ela pode chegar um instante depois do carregamento.
   useEffect(() => {
     let ativo = true;
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, sessao) => { if (sessao && ativo) setLinkInvalido(false); });
+    const verNome = async (uid: string) => {
+      const { data } = await supabase.from('perfis').select('nome').eq('id', uid).maybeSingle();
+      if (ativo && !data?.nome?.trim()) setPedirNome(true);
+    };
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, sessao) => { if (sessao && ativo) { setLinkInvalido(false); void verNome(sessao.user.id); } });
     const t = setTimeout(async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (ativo && !session) setLinkInvalido(true);
+      else if (session) void verNome(session.user.id);
     }, 1500);
     return () => { ativo = false; clearTimeout(t); sub.subscription.unsubscribe(); };
   }, [supabase]);
 
   const salvar = async (e: React.FormEvent) => {
     e.preventDefault();
+    const nomeLimpo = nome.trim().replace(/\s+/g, ' ');
+    if (pedirNome && nomeLimpo.length < 2) { setErro('Escreva seu nome (pelo menos 2 letras).'); return; }
     if (!REGRAS.every((r) => r.ok(senha))) { setErro('A senha precisa ter 8 caracteres ou mais, com letras e números.'); return; }
     if (senha !== confirmar) { setErro('As duas senhas não são iguais. Digite a mesma senha nos dois campos.'); return; }
     setCarregando(true);
     setErro(null);
     const { error } = await supabase.auth.updateUser({ password: senha });
     if (error) { setErro('Não foi possível salvar a senha. Peça um novo link e tente de novo.'); setCarregando(false); return; }
+    if (pedirNome) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) await supabase.from('perfis').update({ nome: nomeLimpo.slice(0, 60) }).eq('id', user.id);
+    }
     setSucesso(true);
     setTimeout(() => router.push('/painel'), 2500);
   };
@@ -70,6 +85,13 @@ export default function RedefinirSenha() {
       ) : (
         <form onSubmit={salvar} className="space-y-5">
           {erro && <AvisoErro>{erro}</AvisoErro>}
+          {pedirNome && (
+            <div className="space-y-2">
+              <Label htmlFor="nome">Seu nome</Label>
+              <Input id="nome" autoComplete="name" required maxLength={60} value={nome} onChange={(e) => setNome(e.target.value)} className="h-11" aria-describedby="nome-ajuda" />
+              <p id="nome-ajuda" className="text-xs text-muted-foreground">Como a equipe vai te ver no CRM.</p>
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="senha">Senha nova</Label>
             <CampoSenha id="senha" autoComplete="new-password" required value={senha} onChange={(e) => setSenha(e.target.value)} aria-describedby="regras-senha" />

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { MotionConfig, motion } from 'motion/react';
 import type { LucideIcon } from 'lucide-react';
-import { Bell, LogOut, Moon, Plus, Search, Sun, X } from 'lucide-react';
+import { Bell, CircleHelp, LogOut, Moon, Plus, Search, Sun, UserRound, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { estiloMarca, saudacao } from '@/lib/marca';
 import { iniciais } from '@/components/glass';
@@ -30,6 +30,10 @@ type AppShellProps = {
   busca: { itens: ItemBusca[]; placeholder: string; aoSelecionar: (id: string) => void };
   notificacoes: { itens: ItemNotificacao[]; vazio: string; aoSelecionar?: (id: string) => void };
   aoSair: () => void;
+  /** Abre "Meu perfil" (nome, e-mail, aparência) a partir do menu do usuário. */
+  aoAbrirPerfil?: () => void;
+  /** Central de ajuda: endereço aberto pelo botão "?" do topo. */
+  ajudaHref?: string;
   /** Faixa opcional no topo do painel (ex.: aviso da demonstração). */
   aviso?: React.ReactNode;
   children: React.ReactNode;
@@ -144,7 +148,7 @@ function Avatar({ marca, className }: { marca: AppShellProps['marca']; className
   );
 }
 
-function MenuUsuario({ marca, usuario, aoSair }: Pick<AppShellProps, 'marca' | 'usuario' | 'aoSair'>) {
+function MenuUsuario({ marca, usuario, aoSair, aoAbrirPerfil, ajudaHref }: Pick<AppShellProps, 'marca' | 'usuario' | 'aoSair' | 'aoAbrirPerfil' | 'ajudaHref'>) {
   const [aberto, setAberto] = useState(false);
   const fechar = useCallback(() => setAberto(false), []);
   const ref = useFecharFora(aberto, fechar);
@@ -175,6 +179,16 @@ function MenuUsuario({ marca, usuario, aoSair }: Pick<AppShellProps, 'marca' | '
             <p className="truncate text-xs text-muted-foreground">{usuario.papel} · {marca.nome}</p>
           </div>
           <div className="my-1 h-px bg-border" />
+          {aoAbrirPerfil && (
+            <button role="menuitem" type="button" onClick={() => { fechar(); aoAbrirPerfil(); }} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] hover:bg-muted">
+              <UserRound className="size-4" /> Meu perfil e nome
+            </button>
+          )}
+          {ajudaHref && (
+            <a role="menuitem" href={ajudaHref} target="_blank" rel="noopener" onClick={fechar} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] hover:bg-muted">
+              <CircleHelp className="size-4" /> Central de ajuda
+            </a>
+          )}
           <button role="menuitem" type="button" onClick={alternar} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] hover:bg-muted">
             {escuro ? <Sun className="size-4" /> : <Moon className="size-4" />}
             {escuro ? 'Usar tema claro' : 'Usar vidro fumê (escuro)'}
@@ -502,7 +516,7 @@ function VisoesMobile({ secoes, secao, visao, aoNavegar }: Pick<AppShellProps, '
 /* ------------------------------------------------------------------ */
 
 export function AppShell(props: AppShellProps) {
-  const { marca, fundoUrl, usuario, secoes, secao, visao, aoNavegar, criar, busca, notificacoes, aoSair, aviso, children } = props;
+  const { marca, fundoUrl, usuario, secoes, secao, visao, aoNavegar, criar, busca, notificacoes, aoSair, aoAbrirPerfil, ajudaHref, aviso, children } = props;
   const painelRef = useRef<HTMLElement>(null);
 
   // Ao trocar de seção, volta o painel ao topo
@@ -514,7 +528,7 @@ export function AppShell(props: AppShellProps) {
         <Fundo url={fundoUrl} />
 
         <header className="glass-pill fixed inset-x-3 top-3 z-40 flex h-[60px] items-center justify-between gap-3 px-2 md:inset-x-4 md:top-4">
-          <MenuUsuario marca={marca} usuario={usuario} aoSair={aoSair} />
+          <MenuUsuario marca={marca} usuario={usuario} aoSair={aoSair} aoAbrirPerfil={aoAbrirPerfil} ajudaHref={ajudaHref} />
           <div className="hidden flex-1 justify-center md:flex">
             <Busca {...busca} />
           </div>
@@ -522,6 +536,18 @@ export function AppShell(props: AppShellProps) {
             <div className="md:hidden">
               <Busca {...busca} compacta />
             </div>
+            {ajudaHref && (
+              <a
+                href={ajudaHref}
+                target="_blank"
+                rel="noopener"
+                aria-label="Central de ajuda (abre em nova aba)"
+                title="Ajuda"
+                className="grid size-10 place-items-center rounded-full bg-pill-active text-pill-active-foreground shadow-[0_1px_3px_rgb(40_25_15/0.12)] transition-transform duration-150 active:scale-95"
+              >
+                <CircleHelp className="size-[18px]" />
+              </a>
+            )}
             <Notificacoes {...notificacoes} />
           </div>
         </header>

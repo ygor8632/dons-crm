@@ -13,6 +13,10 @@ import { Equipe } from './equipe';
 import { Configuracoes, Integracoes } from './configuracoes';
 import { ConvidarDialog, FichaLeadDialog, NovoLeadDialog } from './dialogos';
 import { MotivoPerdaHost } from './acoes-lead';
+import { PedirNome } from '@/components/conta/pedir-nome';
+
+/** Seção do painel → capítulo da central de ajuda aberto pelo botão "?". */
+const AJUDA_POR_SECAO: Record<string, string> = { visao: 'visao-geral', leads: 'leads', relatorios: 'relatorios', equipe: 'equipe', integracoes: 'integracoes', config: 'configuracoes' };
 import { ConviteApp, MarcaDoApp } from '@/components/app/instalar';
 import { Relatorios } from './relatorios';
 
@@ -80,6 +84,8 @@ export function PainelApp({ crm, aviso }: { crm: Painel; aviso?: React.ReactNode
         aoSelecionar: (id) => { const t = crm.tarefas.find((x) => x.id === id); if (t) abrirLeadPorId(t.lead_id); },
       }}
       aoSair={crm.sair}
+      aoAbrirPerfil={() => nav.navegar('config', 'perfil')}
+      ajudaHref={`/ajuda#${AJUDA_POR_SECAO[nav.secao] ?? 'comecar'}`}
       aviso={aviso ?? (crm.appInstalavel && crm.empresa ? <ConviteApp nome={crm.empresa.nome || 'CRM'} icone={crm.iconeApp} /> : undefined)}
     >
       {nav.secao === 'visao' && <VisaoGeral crm={crm} visao={nav.visao} abrirLead={abrirLead} irPara={nav.navegar} novoLead={() => setNovoLead(true)} />}
@@ -91,6 +97,7 @@ export function PainelApp({ crm, aviso }: { crm: Painel; aviso?: React.ReactNode
 
       <NovoLeadDialog crm={crm} aberto={novoLead} aoMudar={setNovoLead} abrirLead={abrirLead} />
       <MotivoPerdaHost crm={crm} />
+      {crm.appInstalavel && <PedirNome semNome={!crm.equipe.find((m) => m.id === crm.userId)?.nome?.trim()} aoSalvar={crm.salvarNome} />}
       {crm.appInstalavel && crm.empresa && crm.iconeApp && (
         <MarcaDoApp empresaId={crm.empresa.id} nome={crm.empresa.nome || 'CRM'} cor={crm.empresa.cor_primaria} versao={crm.iconeApp.split('v=')[1] ?? '0'} />
       )}
