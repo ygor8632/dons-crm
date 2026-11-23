@@ -50,7 +50,7 @@ export default function LoginPage() {
     <AuthLayout
       titulo={marca ? `Entrar no CRM da ${marca.nome}` : 'Entrar no Dons CRM'}
       subtitulo="Use o e-mail e a senha que você criou a partir do convite."
-      rodape={<>Ainda não é cliente? <Link href="/demo" className="inline-block py-2 font-medium text-foreground underline underline-offset-4">Ver a demonstração</Link></>}
+      rodape={<>Ainda não é cliente? <Link href="/demo" className="inline-block py-2 font-medium text-foreground underline underline-offset-4">Experimente agora, sem cadastro</Link></>}
     >
       {marca && (
         <div className="mb-6 flex items-center gap-3 rounded-2xl bg-pill-active/55 p-3 dark:bg-white/6">

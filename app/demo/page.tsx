@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { CONTATO_URL } from '@/lib/contato';
 import { FlaskConical } from 'lucide-react';
 import { Segmented } from '@/components/glass';
 import { PainelApp } from '../painel/_components/painel-app';
@@ -27,6 +28,7 @@ export default function DemoPage() {
           aoMudar={setPapel}
           opcoes={[{ id: 'admin', label: 'Administrador' }, { id: 'vendedor', label: 'Vendedor' }]}
         />
+        <a href={CONTATO_URL} target="_blank" rel="noopener" className="rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/85">Falar com um consultor</a>
         <Link href="/" className="rounded-full px-3 py-1.5 text-xs font-medium underline-offset-4 hover:underline">Voltar ao site</Link>
       </div>
     </div>
