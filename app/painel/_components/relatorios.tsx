@@ -1,15 +1,15 @@
 'use client';
 
 import { fundoDoLogo } from '@/lib/marca-logo';
-import { useMemo, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
-import { CalendarRange, ChevronLeft, ChevronRight, CircleDollarSign, Copy, Hourglass, Inbox, Percent, Printer, Target, Trophy } from 'lucide-react';
-import { CardTitle, EmptyState, GlassCard, PageHeader, Segmented, StatCard } from '@/components/glass';
+import { CalendarRange, ChevronLeft, ChevronRight, CircleDollarSign, Copy, Hourglass, Inbox, Percent, Plus, Printer, Send, Target, Trophy, X } from 'lucide-react';
+import { CardTitle, EmptyState, GlassCard, PageHeader, Segmented, StatCard, Toggle } from '@/components/glass';
 import { Button } from '@/components/ui/button';
 import { COR_PADRAO, corSolida, formatarMoeda, formatarMoedaCurta } from '@/lib/marca';
 import { cn } from '@/lib/utils';
 import type { Painel } from '../_lib/use-painel';
-import type { Lead } from '../_lib/tipos';
+import type { EnvioRelatorio, Lead } from '../_lib/tipos';
 import {
   calcularDesempenho, chaveMes, intervaloDe, intervaloDoMes, metaDe, nomeMes, oQueMudou, PERIODOS, progressoMeta, variacao,
   type Desempenho, type Periodo,
@@ -422,9 +422,99 @@ function RelatorioMensal({ crm }: { crm: Painel }) {
         />
       </div>
 
+      {crm.papel === 'admin' && <EnvioPorEmail crm={crm} mes={mes.inicio} />}
       <PapelRelatorio crm={crm} leads={leads} d={d} mes={mes} frases={frases} />
       {montado && createPortal(<div id="relatorio-impressao" className="hidden print:block"><PapelRelatorio crm={crm} leads={leads} d={d} mes={mes} frases={frases} impressao /></div>, document.body)}
     </div>
+  );
+}
+
+/** Relatório mensal por e-mail: ligar/desligar, destinatários extras, prévia e últimos envios. */
+function EnvioPorEmail({ crm, mes }: { crm: Painel; mes: Date }) {
+  const ativo = crm.empresa?.relatorio_email_ativo ?? true;
+  const extras = crm.empresa?.relatorio_emails_extras ?? [];
+  const admins = crm.equipe.filter((m) => m.role === 'admin');
+  const [novo, setNovo] = useState('');
+  const [erro, setErro] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const [envios, setEnvios] = useState<EnvioRelatorio[] | null>(null);
+  const [versao, setVersao] = useState(0);
+  const mesIso = `${mes.getFullYear()}-${String(mes.getMonth() + 1).padStart(2, '0')}`;
+
+  useEffect(() => {
+    let vivo = true;
+    void crm.carregarEnviosRelatorio().then((r) => { if (vivo) setEnvios(r); });
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [versao]);
+
+  const incluir = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const email = novo.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setErro('Escreva um e-mail válido, como dono@empresa.com.br.'); return; }
+    if (extras.includes(email) || admins.some((a) => a.email?.toLowerCase() === email)) { setErro('Esse e-mail já recebe.'); return; }
+    if (extras.length >= 5) { setErro('Até 5 e-mails extras.'); return; }
+    setErro(null);
+    if (await crm.salvarEnvioRelatorio({ relatorio_emails_extras: [...extras, email] })) setNovo('');
+  };
+  const previa = async () => { setEnviando(true); await crm.enviarPreviaRelatorio(mesIso); setEnviando(false); setVersao((v) => v + 1); };
+
+  return (
+    <GlassCard className="space-y-4 print:hidden">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <CardTitle titulo="Envio por e-mail" descricao="Todo dia 1, às 8h, o resumo do mês que fechou chega por e-mail com o logo e a cor da empresa." />
+        <span className="flex items-center gap-2 text-[13px] font-medium">
+          {ativo ? 'Ligado' : 'Desligado'}
+          <Toggle ativo={ativo} aoMudar={(v) => void crm.salvarEnvioRelatorio({ relatorio_email_ativo: v })} rotulo="Enviar o relatório mensal por e-mail" />
+        </span>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground">Quem recebe</p>
+          <ul className="flex flex-wrap gap-1.5 text-[13px]">
+            {admins.map((a) => (
+              <li key={a.id} className="inline-flex h-8 items-center rounded-full bg-pill-active/55 px-3 dark:bg-white/6" title="Administrador: sempre recebe">
+                {a.email}<span className="ml-1.5 text-[11px] text-muted-foreground">admin</span>
+              </li>
+            ))}
+            {extras.map((e) => (
+              <li key={e} className="inline-flex h-8 items-center gap-1 rounded-full border border-glass-border pr-1 pl-3">
+                {e}
+                <button type="button" onClick={() => void crm.salvarEnvioRelatorio({ relatorio_emails_extras: extras.filter((x) => x !== e) })} aria-label={`Parar de enviar para ${e}`} className="grid size-6 place-items-center rounded-full text-muted-foreground hover:bg-pill-active hover:text-foreground dark:hover:bg-white/10">
+                  <X className="size-3.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+          <form onSubmit={incluir} className="flex gap-2" noValidate>
+            <input
+              type="email" value={novo} onChange={(e) => setNovo(e.target.value)} placeholder="dono@empresa.com.br"
+              aria-label="Incluir e-mail que recebe o relatório" aria-invalid={!!erro} aria-describedby="envio-extra-ajuda"
+              className="h-9 min-w-0 flex-1 rounded-xl border border-input bg-background/60 px-3 text-[13px] dark:bg-white/6"
+            />
+            <Button type="submit" size="sm" variant="outline" disabled={!novo.trim() || extras.length >= 5}><Plus /> Incluir</Button>
+          </form>
+          <p id="envio-extra-ajuda" className={cn('text-xs', erro ? 'font-medium text-destructive' : 'text-muted-foreground')} role={erro ? 'alert' : undefined}>
+            {erro ?? `Administradores sempre recebem. Inclua até 5 e-mails extras, como o do dono ou da diretoria (${extras.length}/5).`}
+          </p>
+        </div>
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground">Testar</p>
+          <Button size="sm" variant="outline" disabled={enviando} onClick={previa}><Send /> {enviando ? 'Enviando…' : `Enviar prévia de ${nomeMes(mes)} para mim`}</Button>
+          <p className="text-xs text-muted-foreground">Só você recebe, com “[Prévia]” no assunto. O envio do dia 1 não é afetado.</p>
+          {envios && envios.length > 0 && (
+            <ul className="space-y-1 pt-1 text-xs">
+              {envios.map((e) => (
+                <li key={e.id} className="flex flex-wrap justify-between gap-x-3">
+                  <span>{e.tipo === 'previa' ? 'Prévia' : 'Envio mensal'} de {nomeMes(new Date(`${e.mes}T12:00:00`))}{e.erro ? '' : ` · ${e.destinatarios} ${e.destinatarios === 1 ? 'pessoa' : 'pessoas'}`}</span>
+                  <span className={e.erro ? 'font-medium text-destructive' : 'text-muted-foreground'}>{e.erro ? 'falhou' : new Date(e.enviado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </GlassCard>
   );
 }
 

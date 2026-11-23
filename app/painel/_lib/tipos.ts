@@ -99,7 +99,12 @@ export type Empresa = {
   segmento?: string | null;
   /** Motivos oferecidos ao marcar perdido; null = lista padrão. */
   motivos_perda?: string[] | null;
+  /** Relatório mensal por e-mail (dia 1): ligado e e-mails extras além dos admins. */
+  relatorio_email_ativo?: boolean;
+  relatorio_emails_extras?: string[];
 };
+
+export type EnvioRelatorio = { id: string; mes: string; tipo: 'mensal' | 'previa'; destinatarios: number; erro?: string | null; enviado_em: string };
 
 /** Meta mensal de vendas: de um vendedor ou da empresa toda (usuario_id nulo). mes = AAAA-MM-01. */
 export type Meta = { id: string; empresa_id?: string; usuario_id: string | null; mes: string; valor: number | null; quantidade: number | null };

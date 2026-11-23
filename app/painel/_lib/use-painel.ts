@@ -7,7 +7,7 @@ import { createClient } from '@/utils/supabase/client';
 import { apagarImagem, enviarImagem, resolverImagens, type TipoImagem } from '@/lib/marca-storage';
 import { desenharIconeApp, enviarIconeApp, removerIconeApp } from '@/lib/icone-app';
 import { analisarLogo, FUNDO_CLARO, FUNDO_ESCURO } from '@/lib/marca-logo';
-import type { Anotacao, Atividade, BaseLegal, Empresa, Etapa, Lead, LinhaImportacao, Membro, Meta, ModeloMensagem, Movimento, Papel, RegistroAcesso, Tarefa, TipoAtividade } from './tipos';
+import type { Anotacao, Atividade, BaseLegal, Empresa, Etapa, Lead, LinhaImportacao, Membro, Meta, ModeloMensagem, Movimento, Papel, RegistroAcesso, Tarefa, TipoAtividade, EnvioRelatorio } from './tipos';
 import { baixarJSON, emAberto, etapaFinal, nomeArquivo, proximaTarefa, rotuloBaseLegal } from './util';
 import { avisarComProximoPasso, emDias } from '../_components/proximo-passo';
 
@@ -400,6 +400,36 @@ export function usePainel() {
     }).catch(() => {});
   }, [papel, empresa, imagens.logo, supabase]);
 
+  /* ---------- Relatório mensal por e-mail ---------- */
+
+  const salvarEnvioRelatorio = useCallback(async (patch: { relatorio_email_ativo?: boolean; relatorio_emails_extras?: string[] }) => {
+    if (!empresa) return false;
+    const { error } = await supabase.from('empresas').update(patch).eq('id', empresa.id);
+    if (error) { toast.error('Não foi possível salvar o envio por e-mail.', { description: error.message.includes('extras_ok') ? 'Confira os e-mails: até 5, em formato válido.' : undefined }); return false; }
+    setEmpresa({ ...empresa, ...patch });
+    toast.success('relatorio_email_ativo' in patch ? (patch.relatorio_email_ativo ? 'Envio mensal ligado' : 'Envio mensal desligado') : 'Destinatários atualizados');
+    return true;
+  }, [empresa, supabase]);
+
+  const carregarEnviosRelatorio = useCallback(async () => {
+    if (!empresa) return [] as EnvioRelatorio[];
+    const { data } = await supabase.from('relatorios_enviados').select('id, mes, tipo, destinatarios, erro, enviado_em').eq('empresa_id', empresa.id).order('enviado_em', { ascending: false }).limit(6);
+    return (data as EnvioRelatorio[]) ?? [];
+  }, [empresa, supabase]);
+
+  /** Manda o relatório do mês escolhido só para o e-mail de quem pediu. */
+  const enviarPreviaRelatorio = useCallback(async (mes: string) => {
+    const { data, error } = await supabase.functions.invoke('relatorio-mensal', { body: { modo: 'previa', mes } });
+    if (error || !data?.ok) {
+      let detalhe: string | undefined;
+      try { detalhe = (await (error as { context?: Response })?.context?.json())?.erro; } catch { /* sem corpo */ }
+      toast.error('A prévia não foi enviada', { description: detalhe ?? 'Tente de novo em instantes ou fale com o suporte.' });
+      return false;
+    }
+    toast.success(`Prévia enviada para ${data.para}`, { description: 'Confira também a caixa de spam na primeira vez.' });
+    return true;
+  }, [supabase]);
+
   /** Motivos de perda da empresa (null volta à lista padrão). */
   const salvarMotivos = useCallback(async (motivos: string[] | null) => {
     if (!empresa) return false;
@@ -619,7 +649,7 @@ export function usePainel() {
   const iconeApp = empresa ? `/api/app/${empresa.id}/icone/192?v=${(empresa.cor_primaria ?? '').replace('#', '')}-${versaoIcone}` : null;
 
   return {
-    carregando, iconeApp, gerarIconeApp, appInstalavel: true as boolean, salvarMotivos, salvarFundoLogo, userId, userEmail, papel, empresa, imagens, etapas, leads, equipe, tarefas, modelos, metas, movimentos, nomeUsuario,
+    carregando, iconeApp, gerarIconeApp, appInstalavel: true as boolean, salvarMotivos, salvarFundoLogo, salvarEnvioRelatorio, carregarEnviosRelatorio, enviarPreviaRelatorio, userId, userEmail, papel, empresa, imagens, etapas, leads, equipe, tarefas, modelos, metas, movimentos, nomeUsuario,
     recarregar: carregar, sair,
     criarLead, moverLead, fecharLead, reabrirLead, salvarProbabilidadeLead, registrarWhatsApp, importarLeads, agendar,
     carregarFicha, adicionarAnotacao, apagarAnotacao, criarTarefa, alternarTarefa, apagarTarefa, reagendarTarefas,
