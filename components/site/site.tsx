@@ -22,13 +22,13 @@ export function SiteNav() {
     <header className="glass-pill fixed inset-x-3 top-3 z-40 mx-auto flex h-[60px] max-w-[1200px] items-center justify-between gap-3 pr-2 pl-3 md:inset-x-6 md:top-4">
       <Marca />
       <nav aria-label="Seções da página" className="hidden items-center gap-1 text-[13px] lg:flex">
-        {[['#painel', 'Painel'], ['#webhook', 'Captação'], ['#marca', 'Sua marca'], ['#perguntas', 'Perguntas']].map(([href, rotulo]) => (
+        {[['#painel', 'Painel'], ['#webhook', 'Captação'], ['#marca', 'Sua marca'], ['#garantias', 'Garantias'], ['#perguntas', 'Perguntas']].map(([href, rotulo]) => (
           <a key={href} href={href} className="rounded-full px-3 py-2 text-foreground/75 transition-colors duration-150 hover:bg-white/35 hover:text-foreground dark:hover:bg-white/8">{rotulo}</a>
         ))}
       </nav>
       <div className="flex items-center gap-1.5">
         <Link href="/login" className={cn(linkBotao, 'text-foreground/80 hover:bg-white/35 hover:text-foreground dark:hover:bg-white/8')}>Entrar</Link>
-        <Link href="/demo" className={cn(botaoPrimario, 'hidden sm:inline-flex')}>Ver a demonstração</Link>
+        <Link href="/demo" className={cn(botaoPrimario, 'hidden sm:inline-flex')}>Experimente agora</Link>
       </div>
     </header>
   );
@@ -39,9 +39,9 @@ export function SiteRodape() {
     <footer className="mx-auto flex max-w-[1200px] flex-col gap-4 px-6 pt-6 pb-10 text-[13px] text-ink-2 sm:flex-row sm:items-center sm:justify-between">
       <span>© 2026 Dons CRM</span>
       <nav aria-label="Rodapé" className="flex flex-wrap gap-x-5 gap-y-2">
-        <Link href="/demo" className="inline-block py-2 underline-offset-4 hover:text-foreground hover:underline">Demonstração</Link>
+        <Link href="/demo" className="inline-block py-2 underline-offset-4 hover:text-foreground hover:underline">Experimente sem cadastro</Link>
         <Link href="/login" className="inline-block py-2 underline-offset-4 hover:text-foreground hover:underline">Área do cliente</Link>
-        {CONTATO_URL && <a href={CONTATO_URL} className="inline-block py-2 underline-offset-4 hover:text-foreground hover:underline">Falar com um consultor</a>}
+        <a href={CONTATO_URL} target="_blank" rel="noopener" className="inline-block py-2 underline-offset-4 hover:text-foreground hover:underline">Falar com um consultor</a>
       </nav>
     </footer>
   );
