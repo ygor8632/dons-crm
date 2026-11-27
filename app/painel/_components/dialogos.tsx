@@ -136,7 +136,7 @@ export function ConvidarDialog({ crm, aberto, aoMudar }: { crm: Painel } & Abert
 }
 
 /** Ficha do lead: contato, etapa, anotações e follow-ups. */
-export function FichaLeadDialog({ crm, lead, aoFechar }: { crm: Painel; lead: Lead | null; aoFechar: () => void }) {
+export function FichaLeadDialog({ crm, lead, aoFechar, abrirConversa }: { crm: Painel; lead: Lead | null; aoFechar: () => void; /** Caixa de entrada do WhatsApp oficial (quando conectado). */ abrirConversa?: (lead: Lead) => void }) {
   const [aba, setAba] = useState<'anotacoes' | 'tarefas' | 'historico' | 'privacidade'>('anotacoes');
   const [anotacoes, setAnotacoes] = useState<Anotacao[]>([]);
   const [atividades, setAtividades] = useState<Atividade[]>([]);
@@ -235,6 +235,11 @@ export function FichaLeadDialog({ crm, lead, aoFechar }: { crm: Painel; lead: Le
                   </label>
                 )}
                 <BotaoWhatsApp crm={crm} lead={atual} variante="botao" />
+                {abrirConversa && crm.whatsapp.conta && atual.telefone && !atual.nao_contatar && !atual.anonimizado_em && (
+                  <Button size="sm" variant="outline" onClick={() => { aoFechar(); abrirConversa(atual); }}>
+                    <MessageCircle /> {crm.whatsapp.conversas.some((c) => c.lead_id === atual.id) ? 'Ver conversa' : 'Iniciar conversa'}
+                  </Button>
+                )}
                 {!fechado && (
                   <>
                     <Button size="sm" variant="outline" onClick={() => void crm.fecharLead(atual.id, 'ganho')}><Trophy className="text-positive-foreground" /> Ganho</Button>

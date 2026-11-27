@@ -13,9 +13,9 @@ import type { Painel } from '../_lib/use-painel';
 import type { Lead } from '../_lib/tipos';
 import { diasParado, emAberto, grupoTarefa, linkWhatsApp, modelosParaLead, preencherModelo, proximaTarefa } from '../_lib/util';
 
-const POPUP = 'glass-strong z-50 min-w-52 rounded-2xl p-1.5 text-[13px] text-foreground outline-none origin-[var(--transform-origin)] transition-[opacity,transform] duration-150 data-[starting-style]:scale-95 data-[starting-style]:opacity-0 data-[ending-style]:opacity-0';
-const ITEM = 'flex cursor-default items-center gap-2 rounded-xl px-2.5 py-2 outline-none select-none data-[highlighted]:bg-pill-active dark:data-[highlighted]:bg-white/10';
-const ROTULO = 'px-2.5 pt-1.5 pb-1 text-[11px] font-medium text-muted-foreground';
+export const POPUP = 'glass-strong z-50 min-w-52 rounded-2xl p-1.5 text-[13px] text-foreground outline-none origin-[var(--transform-origin)] transition-[opacity,transform] duration-150 data-[starting-style]:scale-95 data-[starting-style]:opacity-0 data-[ending-style]:opacity-0';
+export const ITEM = 'flex cursor-default items-center gap-2 rounded-xl px-2.5 py-2 outline-none select-none data-[highlighted]:bg-pill-active dark:data-[highlighted]:bg-white/10';
+export const ROTULO = 'px-2.5 pt-1.5 pb-1 text-[11px] font-medium text-muted-foreground';
 
 /* ---------------- Motivo da perda (um diálogo para o painel todo) ---------------- */
 

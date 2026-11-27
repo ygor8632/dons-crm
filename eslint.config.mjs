@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Edge Functions (Deno): fora do lint do Next, como no tsconfig
+    "supabase/functions/**",
   ]),
 ]);
 

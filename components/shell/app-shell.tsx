@@ -15,7 +15,7 @@ import { fundoDoLogo } from '@/lib/marca-logo';
 /* ------------------------------------------------------------------ */
 
 export type Visao = { id: string; label: string };
-export type Secao = { id: string; label: string; icone: LucideIcon; visoes: Visao[] };
+export type Secao = { id: string; label: string; icone: LucideIcon; visoes: Visao[]; /** Contador no ícone (ex.: mensagens não lidas). */ selo?: number };
 export type ItemBusca = { id: string; titulo: string; subtitulo?: string; meta?: string };
 export type ItemNotificacao = { id: string; titulo: string; subtitulo?: string; tom: 'atrasada' | 'hoje' | 'info' };
 
@@ -380,8 +380,9 @@ function Trilho({ secoes, secao, aoNavegar }: Pick<AppShellProps, 'secoes' | 'se
   return (
     <nav aria-label="Seções" className="glass-pill fixed top-1/2 left-4 z-40 hidden -translate-y-1/2 flex-col items-center gap-1.5 p-1.5 md:flex">
       {secoes.map((s) => (
-        <BotaoTrilho key={s.id} rotulo={s.label} ativo={s.id === secao} onClick={() => aoNavegar(s.id)}>
+        <BotaoTrilho key={s.id} rotulo={s.selo ? `${s.label} (${s.selo} não lidas)` : s.label} ativo={s.id === secao} onClick={() => aoNavegar(s.id)}>
           <s.icone className="size-[18px]" />
+          {!!s.selo && <span className="absolute -top-1.5 -right-2 grid h-4 min-w-4 place-items-center rounded-full bg-brand-solid px-1 text-[9px] font-semibold text-brand-solid-foreground" aria-hidden>{s.selo > 99 ? '99+' : s.selo}</span>}
         </BotaoTrilho>
       ))}
       <span className="my-1 h-px w-6 bg-border" aria-hidden />
@@ -473,12 +474,12 @@ function AbasInferiores({ secoes, secao, visao, aoNavegar, criar }: Pick<AppShel
               key={s.id}
               type="button"
               onClick={() => aoNavegar(s.id)}
-              aria-label={s.label}
+              aria-label={s.selo ? `${s.label} (${s.selo} não lidas)` : s.label}
               aria-current={ativa ? 'page' : undefined}
               className={cn('relative grid h-11 flex-1 place-items-center rounded-full', ativa ? 'text-pill-active-foreground' : 'text-foreground/70')}
             >
               {ativa && <motion.span layoutId="doca-ativa" transition={MOLA} className="absolute inset-0 rounded-full bg-pill-active shadow-[0_2px_8px_rgb(40_25_15/0.14)]" />}
-              <s.icone className="relative size-5" />
+              <span className="relative"><s.icone className="size-5" />{!!s.selo && <span className="absolute -top-1.5 -right-2 grid h-4 min-w-4 place-items-center rounded-full bg-brand-solid px-1 text-[9px] font-semibold text-brand-solid-foreground" aria-hidden>{s.selo > 99 ? '99+' : s.selo}</span>}</span>
             </button>
           );
         })}
