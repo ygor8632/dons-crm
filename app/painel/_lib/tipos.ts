@@ -22,6 +22,9 @@ export type Lead = {
   email?: string | null;
   telefone?: string | null;
   origem?: string | null;
+  /** Campanha e anúncio de onde o lead veio (Meta Lead Ads, Click-to-WhatsApp, utm do site). */
+  campanha?: string | null;
+  anuncio?: string | null;
   etapa_id?: string | null;
   vendedor_id?: string | null;
   vendedor?: { nome?: string | null } | null;

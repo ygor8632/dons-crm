@@ -142,6 +142,30 @@ function PainelDesempenho({ crm }: { crm: Painel }) {
             </GlassCard>
           </div>
 
+          {d.campanhas.length > 0 && (
+            <GlassCard>
+              <CardTitle titulo="Campanhas" descricao="Leads de anúncios e links com campanha: quanto cada uma trouxe e vendeu no período" />
+              <div className="relative mt-3 overflow-x-auto">
+                <table className="w-full min-w-[520px] text-left text-[13px]">
+                  <thead className="text-xs text-muted-foreground">
+                    <tr><th className="py-2 pr-3 font-medium">Campanha</th><th className="px-3 py-2 text-right font-medium">Leads</th><th className="px-3 py-2 text-right font-medium">Vendas</th><th className="px-3 py-2 text-right font-medium">Conversão</th><th className="py-2 pl-3 text-right font-medium">Vendido</th></tr>
+                  </thead>
+                  <tbody className="tabular">
+                    {d.campanhas.slice(0, 15).map((c) => (
+                      <tr key={c.campanha} className="border-t border-border/60">
+                        <td className="max-w-[260px] truncate py-2 pr-3 font-medium" title={c.campanha}>{c.campanha}</td>
+                        <td className="px-3 py-2 text-right">{c.leads}</td>
+                        <td className="px-3 py-2 text-right">{c.ganhos}</td>
+                        <td className="px-3 py-2 text-right">{pct(c.conversao)}</td>
+                        <td className="py-2 pl-3 text-right">{formatarMoeda(c.vendido)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </GlassCard>
+          )}
+
           {admin && vendedor === 'todos' && <TabelaVendedores crm={crm} d={d} mesInicio={periodo === 'mes' || periodo === 'mes_anterior' ? intervalo.inicio : null} />}
         </>
       )}

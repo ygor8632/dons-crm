@@ -24,7 +24,7 @@ type Semente = { conversa: Omit<Conversa, 'empresa_id' | 'created_at' | 'status'
 
 const SEMENTES: Semente[] = [
   {
-    conversa: { id: 'c1', wa_id: '5511981000000', nome_contato: 'Clínica Vida Plena', lead_id: 'l1', responsavel_id: 'demo-carlos', nao_lidas: 2, ultima_entrada_em: min(4) },
+    conversa: { id: 'c1', wa_id: '5511981000000', nome_contato: 'Clínica Vida Plena', lead_id: 'l1', responsavel_id: 'demo-carlos', nao_lidas: 2, ultima_entrada_em: min(4), anuncio_titulo: 'Black Friday: 3 meses com 40% off', anuncio_url: null, anuncio_em: min(40) },
     msgs: [
       ['entrada', 40, 'Oi! Vi o anúncio de vocês no Google. Vocês atendem clínicas?'],
       ['saida', 35, 'Olá! Atendemos sim 😊 Quantos profissionais trabalham aí hoje?'],

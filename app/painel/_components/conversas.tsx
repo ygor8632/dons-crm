@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Menu } from '@base-ui/react/menu';
 import {
-  AlertCircle, Archive, ArchiveRestore, ArrowLeft, Check, CheckCheck, Clock, FileText, Loader2, MessageCircle, MessageSquareText, MoreHorizontal,
+  AlertCircle, Archive, ArchiveRestore, ArrowLeft, Check, CheckCheck, Clock, FileText, Loader2, Megaphone, MessageCircle, MessageSquareText, MoreHorizontal,
   Plug, Plus, Search, Send, Sparkles, UserRound,
 } from 'lucide-react';
 import { EmptyState, GlassCard, iniciais } from '@/components/glass';
@@ -299,6 +299,12 @@ function Thread({ crm, c, voltar, abrirLead }: { crm: Painel; c: Conversa; volta
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-sm font-semibold">{nome}</h2>
           <p className="truncate text-[11px] text-muted-foreground">{formatarWaId(c.wa_id)}{c.nome_contato && lead && c.nome_contato !== lead.nome ? ` · ${c.nome_contato}` : ''}</p>
+          {c.anuncio_titulo && c.anuncio_em && (
+            <p className="mt-0.5 flex items-center gap-1 truncate text-[11px] font-medium text-foreground" title={agora - new Date(c.anuncio_em).getTime() < 72 * 3600e3 ? 'Conversa aberta por anúncio: a Meta não cobra por 72h se você responder em até 24h.' : undefined}>
+              <Megaphone className="size-3 shrink-0 text-brand" aria-hidden />
+              <span className="truncate">Veio do anúncio “{c.anuncio_titulo}”{agora - new Date(c.anuncio_em).getTime() < 72 * 3600e3 ? ' · grátis por 72h' : ''}</span>
+            </p>
+          )}
         </div>
         {lead && <Button variant="outline" size="sm" onClick={() => abrirLead(lead)}><UserRound /> <span className="hidden sm:inline">Ficha do lead</span></Button>}
         <Menu.Root>
