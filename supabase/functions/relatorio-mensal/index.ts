@@ -6,6 +6,8 @@
 //    toda empresa ativa com o envio ligado, uma vez por mês. "simular" só calcula.
 //  - { modo: "previa", mes?: "AAAA-MM" }    → chamado pelo painel por um admin
 //    logado. Envia o relatório só para o e-mail de quem pediu.
+//  - { modo: "teste", empresa_id?: string } → token do Vault. Envia o relatório
+//    de uma empresa só para a caixa remetente (confere senha e SMTP).
 //
 // SMTP da Hostinger (porta 465, SSL) com a caixa suporte@donstech.com.br.
 // A senha fica no segredo SMTP_PASS (definido no painel do Supabase).
@@ -209,6 +211,27 @@ Deno.serve(async (req) => {
       const msg = e instanceof Error ? e.message : String(e);
       await db.from('relatorios_enviados').insert({ empresa_id: emp.id, mes: isoDia(mes), tipo: 'previa', erro: msg.slice(0, 500) });
       return json({ erro: 'Não foi possível enviar a prévia.', detalhe: msg }, 502);
+    }
+  }
+
+  /* ---------- Teste: token do Vault; manda um relatório só para a caixa remetente ---------- */
+  if (corpo.modo === 'teste') {
+    const token = req.headers.get('x-relatorio-token') || '';
+    const { data: valido } = await db.rpc('relatorio_token_valido', { token });
+    if (!valido) return json({ erro: 'Não autorizado' }, 401);
+    const mes = mesAnterior();
+    let q = db.from('empresas').select('id, nome, cor_primaria, ativo, relatorio_email_ativo, relatorio_emails_extras').eq('ativo', true).limit(1);
+    if (typeof corpo.empresa_id === 'string') q = q.eq('id', corpo.empresa_id);
+    const { data: lista } = await q;
+    const emp = lista?.[0] as Empresa | undefined;
+    if (!emp) return json({ erro: 'Nenhuma empresa ativa' }, 404);
+    try {
+      const d = await dadosEmpresa(db, emp, mes);
+      const email = montarEmail(emp, mes, d.n, d.ant, d.meta, d.nomes);
+      const info = await transporte().sendMail({ from: `"Dons CRM" <${REMETENTE}>`, to: REMETENTE, subject: `[Teste] ${email.assunto}`, html: email.html, text: email.texto });
+      return json({ ok: true, para: REMETENTE, empresa: emp.nome, mes: isoDia(mes), aceito: info.accepted, resposta: info.response });
+    } catch (e) {
+      return json({ erro: 'Falha no envio de teste', detalhe: e instanceof Error ? e.message : String(e) }, 502);
     }
   }
 
