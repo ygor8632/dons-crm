@@ -65,7 +65,7 @@ function lerMensagem(m: Msg) {
 const PREVIA: Record<string, string> = { image: '📷 Imagem', audio: '🎤 Áudio', video: '🎬 Vídeo', document: '📄 Documento', sticker: 'Figurinha', location: '📍 Localização', contacts: '👤 Contato', outro: 'Mensagem' };
 
 /** Conversa do contato; na primeira mensagem liga ao lead pelo telefone ou cria o lead. */
-async function obterConversa(db: SupabaseClient, conta: Conta, waId: string, nome: string | null) {
+async function obterConversa(db: SupabaseClient, conta: Conta, waId: string, nome: string | null, referral: Msg | null) {
   const { data: existente } = await db.from('whatsapp_conversas').select('id, lead_id, nao_lidas, ultima_entrada_em').eq('empresa_id', conta.empresa_id).eq('wa_id', waId).maybeSingle();
   if (existente) return existente;
 
@@ -75,15 +75,22 @@ async function obterConversa(db: SupabaseClient, conta: Conta, waId: string, nom
     const { data } = await db.from('leads').select('id, vendedor_id').eq('empresa_id', conta.empresa_id).eq('chave_telefone', chave)
       .is('anonimizado_em', null).order('situacao', { ascending: true }).order('created_at', { ascending: false }).limit(1);
     lead = data?.[0] ?? null;
+    if (lead && referral) {
+      await db.from('lead_atividades').insert({ empresa_id: conta.empresa_id, lead_id: lead.id, usuario_id: null, tipo: 'whatsapp', descricao: `Mandou mensagem pelo anúncio "${String(referral.headline ?? referral.source_id ?? '').slice(0, 120)}"` });
+    }
   }
   if (!lead) {
     const { data: etapa } = await db.from('etapas_funil').select('id').eq('empresa_id', conta.empresa_id).order('ordem').limit(1).maybeSingle();
     const { data: novo } = await db.from('leads').insert({
-      empresa_id: conta.empresa_id, nome: (nome || `+${waId}`).slice(0, 120), telefone: `+${waId}`, origem: 'WhatsApp',
+      empresa_id: conta.empresa_id, nome: (nome || `+${waId}`).slice(0, 120), telefone: `+${waId}`,
+      // Click-to-WhatsApp: a primeira mensagem traz o anúncio (referral)
+      origem: referral ? 'Anúncio no WhatsApp' : 'WhatsApp',
+      campanha: referral ? String(referral.headline || 'Anúncio Click-to-WhatsApp').slice(0, 200) : null,
+      anuncio: referral?.source_id ? String(referral.source_id).slice(0, 200) : null,
       etapa_id: etapa?.id ?? null, base_legal: 'contrato',
     }).select('id, vendedor_id').single();
     lead = novo;
-    if (lead) await db.from('lead_atividades').insert({ empresa_id: conta.empresa_id, lead_id: lead.id, usuario_id: null, tipo: 'whatsapp', descricao: 'Primeira mensagem pelo WhatsApp' });
+    if (lead) await db.from('lead_atividades').insert({ empresa_id: conta.empresa_id, lead_id: lead.id, usuario_id: null, tipo: 'whatsapp', descricao: referral ? `Primeira mensagem pelo WhatsApp, vinda do anúncio "${String(referral.headline ?? referral.source_id ?? '').slice(0, 120)}"` : 'Primeira mensagem pelo WhatsApp' });
   }
   const { data: criada } = await db.from('whatsapp_conversas').upsert({
     empresa_id: conta.empresa_id, wa_id: waId, nome_contato: nome?.slice(0, 120) ?? null, lead_id: lead?.id ?? null, responsavel_id: lead?.vendedor_id ?? null,
@@ -130,7 +137,9 @@ Deno.serve(async (req) => {
     for (const m of (v.messages ?? []) as Msg[]) {
       const waId = String(m.from ?? '').replace(/\D/g, '');
       if (!waId) continue;
-      const conversa = await obterConversa(db, conta as Conta, waId, nomes.get(waId) ?? null);
+      const referral: Msg | null = m.referral && (m.referral.source_type === 'ad' || m.referral.source_id || m.referral.headline) ? m.referral : null;
+      const nova = !(await db.from('whatsapp_conversas').select('id').eq('empresa_id', conta.empresa_id).eq('wa_id', waId).maybeSingle()).data;
+      const conversa = await obterConversa(db, conta as Conta, waId, nomes.get(waId) ?? null, referral);
       if (!conversa) continue;
       const quando = m.timestamp ? new Date(Number(m.timestamp) * 1000).toISOString() : new Date().toISOString();
       const { tipo, texto, midia } = lerMensagem(m);
@@ -139,6 +148,16 @@ Deno.serve(async (req) => {
         midia_id: midia.id ?? null, midia_mime: midia.mime ?? null, midia_nome: midia.nome ?? null, status: 'recebida', criado_em: quando,
       }, { onConflict: 'wa_message_id', ignoreDuplicates: true }).select('id');
       if (!gravada?.length) continue; // reenvio da Meta: já gravada
+      if (referral) {
+        // Anúncio que abriu (ou reabriu) a conversa: a Meta não cobra por 72h se responder em 24h
+        await db.from('whatsapp_conversas').update({
+          anuncio_titulo: String(referral.headline || referral.body || 'Anúncio').slice(0, 300),
+          anuncio_url: referral.source_url ? String(referral.source_url).slice(0, 1000) : null, anuncio_em: quando,
+        }).eq('id', conversa.id);
+        if (!nova && conversa.lead_id) {
+          await db.from('lead_atividades').insert({ empresa_id: conta.empresa_id, lead_id: conversa.lead_id, usuario_id: null, tipo: 'whatsapp', descricao: `Voltou a falar pelo anúncio "${String(referral.headline ?? referral.source_id ?? '').slice(0, 120)}"` });
+        }
+      }
 
       await db.from('whatsapp_conversas').update({
         ultima_previa: (texto || PREVIA[tipo] || 'Mensagem').slice(0, 160), ultima_mensagem_em: quando, ultima_entrada_em: quando,

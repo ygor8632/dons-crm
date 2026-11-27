@@ -27,7 +27,9 @@ const leadSchema = z.object({
       return Number.isFinite(parsed) ? parsed : 0;
     }
     return 0;
-  }, z.number().min(0))
+  }, z.number().min(0)),
+  campanha: z.string().trim().max(200).optional(),
+  anuncio: z.string().trim().max(200).optional(),
 });
 
 export async function POST(request: Request) {
@@ -70,7 +72,10 @@ export async function POST(request: Request) {
       email: body.email,
       telefone: body.telefone || body.phone || body.whatsapp,
       origem: body.origem || body.source,
-      valor: body.valor || body.value
+      valor: body.valor || body.value,
+      // Campanha do anúncio: campo direto ou os parâmetros UTM que o formulário repassar
+      campanha: (body.campanha || body.utm_campaign || undefined)?.toString().slice(0, 200),
+      anuncio: (body.anuncio || body.utm_content || undefined)?.toString().slice(0, 200),
     };
 
     const validData = leadSchema.safeParse(payloadBruto);
@@ -79,6 +84,8 @@ export async function POST(request: Request) {
     }
 
     const { nome, email, telefone, origem, valor } = validData.data;
+    const campanha = validData.data.campanha || null;
+    const anuncio = validData.data.anuncio || null;
 
     // LGPD: o formulário pode mandar o consentimento (caixa marcada) ou a base legal
     const aceite = body.consentimento ?? body.consent ?? body.aceite ?? body.lgpd;
@@ -109,7 +116,7 @@ export async function POST(request: Request) {
     if (existente) {
       await supabaseAdmin.from('lead_atividades').insert([{
         empresa_id: empresa.id, lead_id: existente.id, usuario_id: null, tipo: 'webhook',
-        descricao: `Novo contato${origem ? ` (${origem})` : ''}`,
+        descricao: `Novo contato${origem ? ` (${origem})` : ''}${campanha ? ` · campanha ${campanha}` : ''}`,
       }]);
       return NextResponse.json({ success: true, duplicado: true, message: 'Lead já existe; contato registrado no histórico.', lead_id: existente.id }, { status: 200, headers: corsHeaders });
     }
@@ -130,7 +137,7 @@ export async function POST(request: Request) {
     // 6. Inserir a Lead com etapa_id
     const { data: novaLead, error: leadError } = await supabaseAdmin
       .from('leads')
-      .insert([{ empresa_id: empresa.id, nome, email, telefone, origem, valor, etapa_id: etapa.id, base_legal, consentimento_em }])
+      .insert([{ empresa_id: empresa.id, nome, email, telefone, origem, valor, etapa_id: etapa.id, base_legal, consentimento_em, campanha, anuncio }])
       .select()
       .single();
 
