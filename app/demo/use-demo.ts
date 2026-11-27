@@ -8,6 +8,7 @@ import type { Painel } from '../painel/_lib/use-painel';
 import type { Anotacao, Atividade, BaseLegal, Empresa, Etapa, Lead, LinhaImportacao, Membro, Meta, ModeloMensagem, Movimento, Papel, RegistroAcesso, Tarefa, TipoAtividade, EnvioRelatorio } from '../painel/_lib/tipos';
 import { baixarJSON, emAberto, etapaFinal, nomeArquivo, proximaTarefa, rotuloBaseLegal } from '../painel/_lib/util';
 import { avisarComProximoPasso, emDias } from '../painel/_components/proximo-passo';
+import { useWhatsAppDemo } from './whatsapp-demo';
 
 /*
  * Demonstração: a mesma interface do usePainel, com dados fictícios em memória.
@@ -559,8 +560,11 @@ export function useDemoPainel() {
     return true;
   }, []);
 
+  const whatsapp = useWhatsAppDemo(userId, papel === 'admin', leads);
+
   const crm: Painel = {
     carregando: false,
+    whatsapp,
     iconeApp: null,
     gerarIconeApp,
     appInstalavel: false,

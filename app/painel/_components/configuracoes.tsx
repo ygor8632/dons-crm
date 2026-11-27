@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import type { TipoImagem } from '@/lib/marca-storage';
 import { cn } from '@/lib/utils';
 import type { Painel } from '../_lib/use-painel';
+import { WhatsAppConexao } from './whatsapp-conexao';
 import type { RegistroAcesso } from '../_lib/tipos';
 import { acharDuplicados, CAMPOS_IMPORTACAO, lerPlanilha, montarLinhas, preencherModelo, ROTULO_ACESSO, formatarDataHora, type CampoImportacao } from '../_lib/util';
 
@@ -661,6 +662,7 @@ function Perfil({ crm }: { crm: Painel }) {
 /* ---------------- Integrações: Webhook · Importar ---------------- */
 
 export function Integracoes({ crm, visao }: { crm: Painel; visao: string }) {
+  if (visao === 'whatsapp') return <WhatsAppConexao crm={crm} />;
   return visao === 'importar' ? <Importar crm={crm} /> : <Webhook crm={crm} />;
 }
 

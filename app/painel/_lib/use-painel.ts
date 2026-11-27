@@ -10,6 +10,7 @@ import { analisarLogo, FUNDO_CLARO, FUNDO_ESCURO } from '@/lib/marca-logo';
 import type { Anotacao, Atividade, BaseLegal, Empresa, Etapa, Lead, LinhaImportacao, Membro, Meta, ModeloMensagem, Movimento, Papel, RegistroAcesso, Tarefa, TipoAtividade, EnvioRelatorio } from './tipos';
 import { baixarJSON, emAberto, etapaFinal, nomeArquivo, proximaTarefa, rotuloBaseLegal } from './util';
 import { avisarComProximoPasso, emDias } from '../_components/proximo-passo';
+import { useWhatsAppSupabase } from './whatsapp';
 
 /**
  * Estado e ações do painel do cliente. Mesmas consultas da versão anterior
@@ -640,6 +641,8 @@ export function usePainel() {
 
   /* ---------- Derivados ---------- */
 
+  const whatsapp = useWhatsAppSupabase(supabase, empresa?.id ?? null, userId);
+
   const nomeUsuario = useMemo(() => {
     const eu = equipe.find((m) => m.id === userId);
     return eu?.nome || userEmail?.split('@')[0] || 'você';
@@ -649,7 +652,7 @@ export function usePainel() {
   const iconeApp = empresa ? `/api/app/${empresa.id}/icone/192?v=${(empresa.cor_primaria ?? '').replace('#', '')}-${versaoIcone}` : null;
 
   return {
-    carregando, iconeApp, gerarIconeApp, appInstalavel: true as boolean, salvarMotivos, salvarFundoLogo, salvarEnvioRelatorio, carregarEnviosRelatorio, enviarPreviaRelatorio, userId, userEmail, papel, empresa, imagens, etapas, leads, equipe, tarefas, modelos, metas, movimentos, nomeUsuario,
+    carregando, whatsapp, iconeApp, gerarIconeApp, appInstalavel: true as boolean, salvarMotivos, salvarFundoLogo, salvarEnvioRelatorio, carregarEnviosRelatorio, enviarPreviaRelatorio, userId, userEmail, papel, empresa, imagens, etapas, leads, equipe, tarefas, modelos, metas, movimentos, nomeUsuario,
     recarregar: carregar, sair,
     criarLead, moverLead, fecharLead, reabrirLead, salvarProbabilidadeLead, registrarWhatsApp, importarLeads, agendar,
     carregarFicha, adicionarAnotacao, apagarAnotacao, criarTarefa, alternarTarefa, apagarTarefa, reagendarTarefas,
