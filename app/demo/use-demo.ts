@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { prepararImagem, type TipoImagem } from '@/lib/marca-storage';
 import type { Painel } from '../painel/_lib/use-painel';
-import type { Anotacao, Atividade, BaseLegal, Empresa, Etapa, Lead, LinhaImportacao, Membro, Meta, ModeloMensagem, Movimento, Papel, RegistroAcesso, Tarefa, TipoAtividade, EnvioRelatorio } from '../painel/_lib/tipos';
+import type { Anotacao, Atividade, BaseLegal, Empresa, Etapa, Lead, LinhaImportacao, Membro, Meta, ModeloMensagem, Movimento, Papel, RegistroAcesso, Tarefa, TipoAtividade, EnvioRelatorio, MembroRoleta, RegraRoleta } from '../painel/_lib/tipos';
 import { baixarJSON, emAberto, etapaFinal, nomeArquivo, proximaTarefa, rotuloBaseLegal } from '../painel/_lib/util';
 import { avisarComProximoPasso, emDias } from '../painel/_components/proximo-passo';
 import { useWhatsAppDemo } from './whatsapp-demo';
@@ -532,6 +532,50 @@ export function useDemoPainel() {
     toast.success(`Acesso de ${m.email} revogado`);
   }, [userId]);
 
+  // Roleta: Carlos e Beatriz participam; Google Ads só para a Beatriz
+  const [roleta, setRoleta] = useState<{ membros: MembroRoleta[]; regras: RegraRoleta[] }>(() => ({
+    membros: [
+      { perfil_id: 'demo-carlos', participa: true, ultimo_lead_em: dias(-0.3), recebidos: 14 },
+      { perfil_id: 'demo-bia', participa: true, ultimo_lead_em: dias(-0.1), recebidos: 12 },
+    ],
+    regras: [{ id: 'r1', origem: 'Google Ads', membros: ['demo-bia'] }],
+  }));
+  const carregarRoleta = useCallback(async () => roleta, [roleta]);
+  const salvarRoleta = useCallback(async (ativa: boolean, membros: string[], regras: RegraRoleta[]) => {
+    await espera();
+    if (ativa && !membros.length) { toast.error('Escolha ao menos uma pessoa para receber leads.'); return false; }
+    setRoleta((r) => ({
+      membros: [
+        ...r.membros.map((m) => ({ ...m, participa: membros.includes(m.perfil_id) })),
+        ...membros.filter((id) => !r.membros.some((m) => m.perfil_id === id)).map((id) => ({ perfil_id: id, participa: true, ultimo_lead_em: null, recebidos: 0 })),
+      ],
+      regras: regras.map((g, i) => ({ ...g, id: `r${i + 1}` })),
+    }));
+    setEmpresa((e) => ({ ...e, distribuicao_ativa: ativa }));
+    toast.success(ativa ? 'Roleta ligada. Os próximos leads do site e do WhatsApp já entram nela.' : 'Distribuição salva.');
+    return true;
+  }, []);
+  const distribuirSemResponsavel = useCallback(async () => {
+    await espera();
+    const fila = roleta.membros.filter((m) => m.participa).map((m) => ({ ...m }));
+    if (!fila.length) { toast.error('Escolha quem participa da roleta antes.'); return null; }
+    const alvo = todosLeads.filter((l) => !l.vendedor_id && emAberto(l, etapas)).sort((a, b) => a.created_at.localeCompare(b.created_at));
+    const atrib = new Map<string, string>();
+    for (const l of alvo) {
+      const regra = roleta.regras.find((g) => g.origem.trim().toLowerCase() === (l.origem ?? '').trim().toLowerCase());
+      const cands = fila.filter((m) => !regra || regra.membros.includes(m.perfil_id)).sort((a, b) => (a.ultimo_lead_em ?? '').localeCompare(b.ultimo_lead_em ?? ''));
+      const v = cands[0];
+      if (!v) continue;
+      v.ultimo_lead_em = new Date(Date.now() + atrib.size).toISOString(); v.recebidos++;
+      atrib.set(l.id, v.perfil_id);
+    }
+    setLeads((prev) => prev.map((l) => (atrib.has(l.id) ? { ...l, vendedor_id: atrib.get(l.id)!, vendedor: { nome: nomeDe(atrib.get(l.id)!) } } : l)));
+    setRoleta((r) => ({ ...r, membros: r.membros.map((m) => fila.find((f) => f.perfil_id === m.perfil_id) ?? m) }));
+    const n = atrib.size;
+    toast.success(n ? `${n} ${n === 1 ? 'lead distribuído' : 'leads distribuídos'} pela roleta.` : 'Nenhum lead em aberto sem responsável.');
+    return n;
+  }, [roleta, todosLeads, etapas]);
+
   const salvarMotivos = useCallback(async (motivos: string[] | null) => {
     setEmpresa((e) => ({ ...e, motivos_perda: motivos }));
     toast.success('Motivos de perda atualizados');
@@ -565,6 +609,9 @@ export function useDemoPainel() {
   const crm: Painel = {
     carregando: false,
     whatsapp,
+    carregarRoleta,
+    salvarRoleta,
+    distribuirSemResponsavel,
     iconeApp: null,
     gerarIconeApp,
     appInstalavel: false,

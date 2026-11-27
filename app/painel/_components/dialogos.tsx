@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowRight, Check, ChevronDown, Download, FileUp, Globe, Mail, MessageCircle, Percent, Phone, RotateCcw, ShieldCheck, Sparkles, StickyNote, Trash2, Trophy, UserX, XCircle } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, Download, FileUp, Globe, Mail, MessageCircle, Percent, Phone, RotateCcw, ShieldCheck, Shuffle, Sparkles, StickyNote, Trash2, Trophy, UserX, XCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -334,11 +334,11 @@ export function FichaLeadDialog({ crm, lead, aoFechar, abrirConversa }: { crm: P
 
 const ICONE_ATIVIDADE: Record<TipoAtividade | 'anotacao' | 'tarefa' | 'criado', typeof MessageCircle> = {
   whatsapp: MessageCircle, ligacao: Phone, email: Mail, etapa: ArrowRight, ganho: Trophy, perdido: XCircle,
-  reaberto: RotateCcw, webhook: Globe, importacao: FileUp, anotacao: StickyNote, tarefa: Check, criado: Sparkles,
+  reaberto: RotateCcw, webhook: Globe, importacao: FileUp, distribuicao: Shuffle, anotacao: StickyNote, tarefa: Check, criado: Sparkles,
 };
 const ROTULO_ATIVIDADE: Record<TipoAtividade, string> = {
   whatsapp: 'WhatsApp', ligacao: 'Ligação', email: 'E-mail', etapa: 'Mudou de etapa', ganho: 'Venda concluída',
-  perdido: 'Marcado como perdido', reaberto: 'Negociação reaberta', webhook: 'Novo contato pelo site', importacao: 'Importado',
+  perdido: 'Marcado como perdido', reaberto: 'Negociação reaberta', webhook: 'Novo contato pelo site', importacao: 'Importado', distribuicao: 'Distribuído pela roleta',
 };
 
 /** Linha do tempo: atividades registradas, anotações, follow-ups concluídos e a criação do lead. */
