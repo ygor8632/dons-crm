@@ -7,7 +7,7 @@ import { createClient } from '@/utils/supabase/client';
 import { apagarImagem, enviarImagem, resolverImagens, type TipoImagem } from '@/lib/marca-storage';
 import { desenharIconeApp, enviarIconeApp, removerIconeApp } from '@/lib/icone-app';
 import { analisarLogo, FUNDO_CLARO, FUNDO_ESCURO } from '@/lib/marca-logo';
-import type { Anotacao, Atividade, BaseLegal, Empresa, Etapa, Lead, LinhaImportacao, Membro, Meta, ModeloMensagem, Movimento, Papel, RegistroAcesso, Tarefa, TipoAtividade, EnvioRelatorio } from './tipos';
+import type { Anotacao, Atividade, BaseLegal, Empresa, Etapa, Lead, LinhaImportacao, Membro, Meta, ModeloMensagem, Movimento, Papel, RegistroAcesso, Tarefa, TipoAtividade, EnvioRelatorio, MembroRoleta, RegraRoleta } from './tipos';
 import { baixarJSON, emAberto, etapaFinal, nomeArquivo, proximaTarefa, rotuloBaseLegal } from './util';
 import { avisarComProximoPasso, emDias } from '../_components/proximo-passo';
 import { useWhatsAppSupabase } from './whatsapp';
@@ -441,6 +441,36 @@ export function usePainel() {
     return true;
   }, [empresa, supabase]);
 
+  /* ---------------- Distribuição (roleta) ---------------- */
+
+  const carregarRoleta = useCallback(async () => {
+    const [{ data: m }, { data: r }] = await Promise.all([
+      supabase.from('distribuicao_membros').select('perfil_id, participa, ultimo_lead_em, recebidos'),
+      supabase.from('distribuicao_regras').select('id, origem, membros').order('ordem'),
+    ]);
+    return { membros: (m as MembroRoleta[]) ?? [], regras: (r as RegraRoleta[]) ?? [] };
+  }, [supabase]);
+
+  const salvarRoleta = useCallback(async (ativa: boolean, membros: string[], regras: RegraRoleta[]) => {
+    if (!empresa) return false;
+    const { error } = await supabase.rpc('distribuicao_salvar', {
+      p_ativa: ativa, p_membros: membros, p_regras: regras.map((r) => ({ origem: r.origem.trim(), membros: r.membros })),
+    });
+    if (error) { toast.error(error.message || 'Não foi possível salvar a distribuição.'); return false; }
+    setEmpresa({ ...empresa, distribuicao_ativa: ativa });
+    toast.success(ativa ? 'Roleta ligada. Os próximos leads do site e do WhatsApp já entram nela.' : 'Distribuição salva.');
+    return true;
+  }, [empresa, supabase]);
+
+  const distribuirSemResponsavel = useCallback(async () => {
+    const { data, error } = await supabase.rpc('distribuir_sem_responsavel');
+    if (error) { toast.error(error.message || 'Não foi possível distribuir.'); return null; }
+    await carregar();
+    const n = Number(data) || 0;
+    toast.success(n ? `${n} ${n === 1 ? 'lead distribuído' : 'leads distribuídos'} pela roleta.` : 'Nenhum lead em aberto sem responsável.');
+    return n;
+  }, [supabase, carregar]);
+
   /** Refaz o ícone do app a partir do logo atual (ex.: logo enviado antes deste recurso). */
   const gerarIconeApp = useCallback(async () => {
     if (!empresa) return false;
@@ -652,7 +682,7 @@ export function usePainel() {
   const iconeApp = empresa ? `/api/app/${empresa.id}/icone/192?v=${(empresa.cor_primaria ?? '').replace('#', '')}-${versaoIcone}` : null;
 
   return {
-    carregando, whatsapp, iconeApp, gerarIconeApp, appInstalavel: true as boolean, salvarMotivos, salvarFundoLogo, salvarEnvioRelatorio, carregarEnviosRelatorio, enviarPreviaRelatorio, userId, userEmail, papel, empresa, imagens, etapas, leads, equipe, tarefas, modelos, metas, movimentos, nomeUsuario,
+    carregando, whatsapp, carregarRoleta, salvarRoleta, distribuirSemResponsavel, iconeApp, gerarIconeApp, appInstalavel: true as boolean, salvarMotivos, salvarFundoLogo, salvarEnvioRelatorio, carregarEnviosRelatorio, enviarPreviaRelatorio, userId, userEmail, papel, empresa, imagens, etapas, leads, equipe, tarefas, modelos, metas, movimentos, nomeUsuario,
     recarregar: carregar, sair,
     criarLead, moverLead, fecharLead, reabrirLead, salvarProbabilidadeLead, registrarWhatsApp, importarLeads, agendar,
     carregarFicha, adicionarAnotacao, apagarAnotacao, criarTarefa, alternarTarefa, apagarTarefa, reagendarTarefas,

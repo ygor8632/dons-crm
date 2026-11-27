@@ -57,7 +57,7 @@ export type RegistroAcesso = {
   detalhes?: string | null;
 };
 
-export type TipoAtividade = 'whatsapp' | 'ligacao' | 'email' | 'etapa' | 'ganho' | 'perdido' | 'reaberto' | 'webhook' | 'importacao';
+export type TipoAtividade = 'whatsapp' | 'ligacao' | 'email' | 'etapa' | 'ganho' | 'perdido' | 'reaberto' | 'webhook' | 'importacao' | 'distribuicao';
 
 export type Atividade = {
   id: string;
@@ -102,7 +102,14 @@ export type Empresa = {
   /** Relatório mensal por e-mail (dia 1): ligado e e-mails extras além dos admins. */
   relatorio_email_ativo?: boolean;
   relatorio_emails_extras?: string[];
+  /** Roleta: leads de integrações sem responsável vão para o próximo da vez. */
+  distribuicao_ativa?: boolean;
 };
+
+/** Quem participa da roleta e quando recebeu o último lead. */
+export type MembroRoleta = { perfil_id: string; participa: boolean; ultimo_lead_em: string | null; recebidos: number };
+/** Origem com fila própria (ex.: Google Ads só para dois vendedores). */
+export type RegraRoleta = { id?: string; origem: string; membros: string[] };
 
 export type EnvioRelatorio = { id: string; mes: string; tipo: 'mensal' | 'previa'; destinatarios: number; erro?: string | null; enviado_em: string };
 
