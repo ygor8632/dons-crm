@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowRight, Check, ChevronDown, Download, FileUp, Globe, Mail, MessageCircle, Percent, Phone, RotateCcw, ShieldCheck, Shuffle, Sparkles, StickyNote, Trash2, Trophy, UserX, XCircle } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, Download, FileUp, Globe, Mail, MessageCircle, Percent, Phone, RotateCcw, Megaphone, ShieldCheck, Shuffle, Sparkles, StickyNote, Trash2, Trophy, UserX, XCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -199,6 +199,12 @@ export function FichaLeadDialog({ crm, lead, aoFechar, abrirConversa }: { crm: P
                   {[atual.telefone, atual.email, atual.documento].filter(Boolean).join(' · ') || 'Sem contato'}
                   {(atual.valor ?? 0) > 0 && <> · <span className="tabular font-semibold text-foreground">{formatarMoeda(atual.valor || 0)}</span></>}
                 </DialogDescription>
+                {atual.campanha && (
+                  <p className="mt-1.5 inline-flex max-w-full items-center gap-1.5 self-start rounded-full bg-brand/10 px-2.5 py-1 text-[11px] font-medium text-foreground">
+                    <Megaphone className="size-3 shrink-0" aria-hidden />
+                    <span className="truncate">{atual.origem ? `${atual.origem} · ` : ''}Campanha {atual.campanha}{atual.anuncio && !/^[0-9]+$/.test(atual.anuncio) ? ` · ${atual.anuncio}` : ''}</span>
+                  </p>
+                )}
               </DialogHeader>
               {fechado && (
                 <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-pill-active/45 p-2.5 pl-3 dark:bg-white/5">
@@ -348,7 +354,7 @@ function Historico({ crm, lead, atividades, anotacoes, tarefas }: { crm: Painel;
     ...atividades.map((a) => ({ id: a.id, tipo: a.tipo as keyof typeof ICONE_ATIVIDADE, titulo: ROTULO_ATIVIDADE[a.tipo], texto: a.descricao, quando: a.created_at, por: quem(a.usuario_id) })),
     ...anotacoes.map((n) => ({ id: n.id, tipo: 'anotacao' as const, titulo: 'Anotação', texto: n.texto, quando: n.created_at, por: n.perfis?.nome ?? null })),
     ...tarefas.filter((t) => t.concluida).map((t) => ({ id: t.id, tipo: 'tarefa' as const, titulo: 'Follow-up concluído', texto: t.descricao, quando: t.data_vencimento, por: null })),
-    { id: 'criado', tipo: 'criado' as const, titulo: 'Lead criado', texto: lead.origem ? `Origem: ${lead.origem}` : null, quando: lead.created_at, por: null },
+    { id: 'criado', tipo: 'criado' as const, titulo: 'Lead criado', texto: lead.origem ? `Origem: ${lead.origem}${lead.campanha ? ` · campanha ${lead.campanha}` : ''}` : lead.campanha ? `Campanha ${lead.campanha}` : null, quando: lead.created_at, por: null },
   ].sort((a, b) => b.quando.localeCompare(a.quando));
 
   return (
@@ -426,7 +432,7 @@ function Privacidade({ crm, lead, aoAnonimizar }: { crm: Painel; lead: Lead; aoA
           {lead.base_legal ? BASES_LEGAIS.find((b) => b.id === lead.base_legal)?.dica : 'É a base legal da LGPD. Sem ela, fica difícil explicar de onde veio o contato se a pessoa perguntar.'}
           {lead.base_legal === 'consentimento' && lead.consentimento_em && ` Registrado em ${formatarDataHora(lead.consentimento_em)}.`}
         </p>
-        <p className="text-xs text-muted-foreground">Origem: <span className="text-foreground">{lead.origem || 'não informada'}</span> · cadastrado em {formatarDataHora(lead.created_at)}</p>
+        <p className="text-xs text-muted-foreground">Origem: <span className="text-foreground">{lead.origem || 'não informada'}{lead.campanha ? ` (campanha ${lead.campanha})` : ''}</span> · cadastrado em {formatarDataHora(lead.created_at)}</p>
       </section>
 
       <section className="flex items-start justify-between gap-4 rounded-2xl bg-pill-active/45 p-3.5 dark:bg-white/5">

@@ -9,6 +9,7 @@ import type { Anotacao, Atividade, BaseLegal, Empresa, Etapa, Lead, LinhaImporta
 import { baixarJSON, emAberto, etapaFinal, nomeArquivo, proximaTarefa, rotuloBaseLegal } from '../painel/_lib/util';
 import { avisarComProximoPasso, emDias } from '../painel/_components/proximo-passo';
 import { useWhatsAppDemo } from './whatsapp-demo';
+import { useAnunciosDemo } from './anuncios-demo';
 
 /*
  * Demonstração: a mesma interface do usePainel, com dados fictícios em memória.
@@ -82,6 +83,9 @@ function leadsIniciais(): Lead[] {
     // LGPD: base legal conforme a origem; Facebook fica sem informar, para mostrar o aviso
     base_legal: origem === 'Site' ? 'consentimento' : origem === 'WhatsApp' || origem === 'Indicação' ? 'contrato' : origem === 'Facebook' ? null : 'legitimo_interesse',
     consentimento_em: origem === 'Site' ? dias(-d) : null,
+    // Campanhas de anúncio (relatório Campanhas e selo na ficha)
+    campanha: ({ 0: 'Black Friday 2026', 8: 'Black Friday 2026', 12: 'Black Friday 2026', 1: 'Empresas Brasília', 3: 'Empresas Brasília', 11: 'Volta às aulas' } as Record<number, string>)[i] ?? null,
+    anuncio: ({ 0: 'Vídeo depoimento', 8: 'Vídeo depoimento', 12: 'Carrossel planos', 1: 'Imagem academia', 3: 'Imagem academia', 11: 'Stories matrícula' } as Record<number, string>)[i] ?? null,
     nao_contatar: i === 7,
   }));
 }
@@ -606,9 +610,12 @@ export function useDemoPainel() {
 
   const whatsapp = useWhatsAppDemo(userId, papel === 'admin', leads);
 
+  const anuncios = useAnunciosDemo();
+
   const crm: Painel = {
     carregando: false,
     whatsapp,
+    anuncios,
     carregarRoleta,
     salvarRoleta,
     distribuirSemResponsavel,

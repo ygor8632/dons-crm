@@ -12,7 +12,7 @@ import type { Painel } from '../_lib/use-painel';
 import { formatarDataHora } from '../_lib/util';
 import type { ResultadoTeste } from '../_lib/whatsapp';
 
-function Copiar({ id, rotulo, valor }: { id: string; rotulo: string; valor: string }) {
+export function Copiar({ id, rotulo, valor }: { id: string; rotulo: string; valor: string }) {
   const [ok, setOk] = useState(false);
   return (
     <div className="space-y-1.5">
@@ -158,7 +158,7 @@ export function WhatsAppConexao({ crm }: { crm: Painel }) {
   );
 }
 
-function Campo({ id, rotulo, valor, erro, aoMudar, tipo = 'text', inputMode }: {
+export function Campo({ id, rotulo, valor, erro, aoMudar, tipo = 'text', inputMode }: {
   id: string; rotulo: string; valor: string; erro: string | null; aoMudar: (v: string) => void; tipo?: string; inputMode?: 'numeric';
 }) {
   return (

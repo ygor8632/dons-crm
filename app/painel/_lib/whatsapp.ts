@@ -14,6 +14,8 @@ export type ContaWhatsApp = {
 export type Conversa = {
   id: string; empresa_id: string; wa_id: string; nome_contato: string | null; lead_id: string | null; responsavel_id: string | null;
   status: 'aberta' | 'arquivada'; nao_lidas: number; ultima_previa: string | null; ultima_mensagem_em: string | null; ultima_entrada_em: string | null; created_at: string;
+  /** Anúncio Click-to-WhatsApp que abriu a conversa. */
+  anuncio_titulo?: string | null; anuncio_url?: string | null; anuncio_em?: string | null;
 };
 export type TipoMensagemWA = 'text' | 'image' | 'audio' | 'video' | 'document' | 'sticker' | 'location' | 'contacts' | 'template' | 'reaction' | 'outro';
 export type StatusMensagemWA = 'recebida' | 'enviando' | 'enviada' | 'entregue' | 'lida' | 'falhou';

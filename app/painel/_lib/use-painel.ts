@@ -11,6 +11,7 @@ import type { Anotacao, Atividade, BaseLegal, Empresa, Etapa, Lead, LinhaImporta
 import { baixarJSON, emAberto, etapaFinal, nomeArquivo, proximaTarefa, rotuloBaseLegal } from './util';
 import { avisarComProximoPasso, emDias } from '../_components/proximo-passo';
 import { useWhatsAppSupabase } from './whatsapp';
+import { useAnunciosSupabase } from './anuncios';
 
 /**
  * Estado e ações do painel do cliente. Mesmas consultas da versão anterior
@@ -672,6 +673,7 @@ export function usePainel() {
   /* ---------- Derivados ---------- */
 
   const whatsapp = useWhatsAppSupabase(supabase, empresa?.id ?? null, userId);
+  const anuncios = useAnunciosSupabase(supabase, empresa?.id ?? null, papel === 'admin', !!whatsapp.conta);
 
   const nomeUsuario = useMemo(() => {
     const eu = equipe.find((m) => m.id === userId);
@@ -682,7 +684,7 @@ export function usePainel() {
   const iconeApp = empresa ? `/api/app/${empresa.id}/icone/192?v=${(empresa.cor_primaria ?? '').replace('#', '')}-${versaoIcone}` : null;
 
   return {
-    carregando, whatsapp, carregarRoleta, salvarRoleta, distribuirSemResponsavel, iconeApp, gerarIconeApp, appInstalavel: true as boolean, salvarMotivos, salvarFundoLogo, salvarEnvioRelatorio, carregarEnviosRelatorio, enviarPreviaRelatorio, userId, userEmail, papel, empresa, imagens, etapas, leads, equipe, tarefas, modelos, metas, movimentos, nomeUsuario,
+    carregando, whatsapp, anuncios, carregarRoleta, salvarRoleta, distribuirSemResponsavel, iconeApp, gerarIconeApp, appInstalavel: true as boolean, salvarMotivos, salvarFundoLogo, salvarEnvioRelatorio, carregarEnviosRelatorio, enviarPreviaRelatorio, userId, userEmail, papel, empresa, imagens, etapas, leads, equipe, tarefas, modelos, metas, movimentos, nomeUsuario,
     recarregar: carregar, sair,
     criarLead, moverLead, fecharLead, reabrirLead, salvarProbabilidadeLead, registrarWhatsApp, importarLeads, agendar,
     carregarFicha, adicionarAnotacao, apagarAnotacao, criarTarefa, alternarTarefa, apagarTarefa, reagendarTarefas,

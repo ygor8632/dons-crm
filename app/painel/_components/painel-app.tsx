@@ -32,7 +32,7 @@ export function PainelApp({ crm, aviso }: { crm: Painel; aviso?: React.ReactNode
     ...(admin || crm.whatsapp.conta ? [{ id: 'conversas', label: 'Conversas', icone: MessageCircle, selo: crm.whatsapp.naoLidas, visoes: [{ id: 'abertas', label: 'Caixa de entrada' }, { id: 'arquivadas', label: 'Arquivadas' }] }] : []),
     { id: 'relatorios', label: 'Relatórios', icone: ChartNoAxesColumn, visoes: [{ id: 'desempenho', label: 'Desempenho' }, { id: 'metas', label: 'Metas' }, { id: 'mensal', label: 'Relatório mensal' }] },
     { id: 'equipe', label: 'Equipe', icone: Users, visoes: admin ? [{ id: 'membros', label: 'Membros' }, { id: 'distribuicao', label: 'Distribuição' }] : [{ id: 'membros', label: 'Membros' }] },
-    ...(admin ? [{ id: 'integracoes', label: 'Integrações', icone: Plug, visoes: [{ id: 'whatsapp', label: 'WhatsApp' }, { id: 'webhook', label: 'Webhook' }, { id: 'importar', label: 'Importar planilha' }] }] : []),
+    ...(admin ? [{ id: 'integracoes', label: 'Integrações', icone: Plug, visoes: [{ id: 'whatsapp', label: 'WhatsApp' }, { id: 'anuncios', label: 'Anúncios' }, { id: 'webhook', label: 'Webhook' }, { id: 'importar', label: 'Importar planilha' }] }] : []),
     {
       id: 'config', label: 'Configurações', icone: Settings,
       visoes: admin ? [{ id: 'marca', label: 'Marca' }, { id: 'funil', label: 'Funil' }, { id: 'mensagens', label: 'Mensagens' }, { id: 'privacidade', label: 'Privacidade' }, { id: 'perfil', label: 'Perfil' }] : [{ id: 'perfil', label: 'Perfil' }],
@@ -117,7 +117,7 @@ export function PainelApp({ crm, aviso }: { crm: Painel; aviso?: React.ReactNode
       {nav.secao === 'conversas' && <Conversas crm={crm} visao={nav.visao} abrirLead={abrirLead} irPara={nav.navegar} conversaPedida={conversaPedida} aoAbrirPedida={limparPedida} />}
       {nav.secao === 'relatorios' && <Relatorios crm={crm} visao={nav.visao} />}
       {nav.secao === 'equipe' && (nav.visao === 'distribuicao' && admin ? <Distribuicao crm={crm} /> : <Equipe crm={crm} convidar={() => setConvite(true)} />)}
-      {nav.secao === 'integracoes' && admin && <Integracoes crm={crm} visao={nav.visao} />}
+      {nav.secao === 'integracoes' && admin && <Integracoes crm={crm} visao={nav.visao} abrirLead={abrirLead} />}
       {nav.secao === 'config' && <Configuracoes crm={crm} visao={nav.visao} />}
 
       <NovoLeadDialog crm={crm} aberto={novoLead} aoMudar={setNovoLead} abrirLead={abrirLead} />

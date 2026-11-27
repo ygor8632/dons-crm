@@ -18,7 +18,8 @@ import type { TipoImagem } from '@/lib/marca-storage';
 import { cn } from '@/lib/utils';
 import type { Painel } from '../_lib/use-painel';
 import { WhatsAppConexao } from './whatsapp-conexao';
-import type { RegistroAcesso } from '../_lib/tipos';
+import { AnunciosMeta } from './anuncios-meta';
+import type { Lead, RegistroAcesso } from '../_lib/tipos';
 import { acharDuplicados, CAMPOS_IMPORTACAO, lerPlanilha, montarLinhas, preencherModelo, ROTULO_ACESSO, formatarDataHora, type CampoImportacao } from '../_lib/util';
 
 /* ---------------- Configurações: Marca · Funil · Perfil ---------------- */
@@ -661,8 +662,9 @@ function Perfil({ crm }: { crm: Painel }) {
 
 /* ---------------- Integrações: Webhook · Importar ---------------- */
 
-export function Integracoes({ crm, visao }: { crm: Painel; visao: string }) {
+export function Integracoes({ crm, visao, abrirLead }: { crm: Painel; visao: string; abrirLead: (l: Lead) => void }) {
   if (visao === 'whatsapp') return <WhatsAppConexao crm={crm} />;
+  if (visao === 'anuncios') return <AnunciosMeta crm={crm} abrirLead={abrirLead} />;
   return visao === 'importar' ? <Importar crm={crm} /> : <Webhook crm={crm} />;
 }
 
@@ -695,10 +697,11 @@ Content-Type: application/json
 
 { "nome": "Maria Silva", "telefone": "11999990000",
   "email": "maria@exemplo.com", "origem": "Site", "valor": 1500,
-  "consentimento": true }`}</pre>
+  "campanha": "Black Friday", "consentimento": true }`}</pre>
         <p className="text-xs text-muted-foreground">
           <span className="font-mono text-foreground">consentimento: true</span> registra que a pessoa marcou a caixa de autorização no formulário (LGPD), com data e hora.
           Também aceita <span className="font-mono text-foreground">base_legal</span>: consentimento, contrato, legitimo_interesse ou obrigacao_legal.
+          Para saber qual anúncio trouxe o lead, mande <span className="font-mono text-foreground">campanha</span> e <span className="font-mono text-foreground">anuncio</span> (ou repasse <span className="font-mono text-foreground">utm_campaign</span> e <span className="font-mono text-foreground">utm_content</span> do link).
         </p>
       </GlassCard>
     </div>

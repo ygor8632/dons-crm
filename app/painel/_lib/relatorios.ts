@@ -105,6 +105,8 @@ export type Desempenho = {
   tempoPorEtapa: { etapa: Etapa; dias: number | null; n: number }[];
   motivos: { motivo: string; n: number; valor: number }[];
   origens: { origem: string; leads: number; ganhos: number; conversao: number; vendido: number }[];
+  /** Mesmo cálculo por campanha (só leads que vieram de campanha). */
+  campanhas: { campanha: string; leads: number; ganhos: number; conversao: number; vendido: number }[];
   vendedores: { id: string | null; nome: string; leads: number; ganhos: number; perdidos: number; vendido: number; taxa: number | null }[];
 };
 
@@ -178,6 +180,16 @@ export function calcularDesempenho(
   }
   const origens = [...ori.entries()].map(([origem, v]) => ({ origem, ...v, conversao: v.leads ? (v.ganhos / v.leads) * 100 : 0 })).sort((x, y) => y.leads - x.leads);
 
+  // Campanhas (anúncios da Meta, Click-to-WhatsApp, utm do site)
+  const camp = new Map<string, { leads: number; ganhos: number; vendido: number }>();
+  for (const l of coorte) {
+    if (!l.campanha) continue;
+    const v = camp.get(l.campanha) ?? { leads: 0, ganhos: 0, vendido: 0 };
+    const g = ehGanho(l, etapas);
+    camp.set(l.campanha, { leads: v.leads + 1, ganhos: v.ganhos + (g ? 1 : 0), vendido: v.vendido + (g ? l.valor || 0 : 0) });
+  }
+  const campanhas = [...camp.entries()].map(([campanha, v]) => ({ campanha, ...v, conversao: v.leads ? (v.ganhos / v.leads) * 100 : 0 })).sort((x, y) => y.vendido - x.vendido || y.leads - x.leads);
+
   // Por vendedor
   const ids = [...new Set([...equipe.map((m) => m.id as string | null), ...leads.map((l) => l.vendedor_id ?? null)])];
   const vendedores = ids.map((id) => {
@@ -194,6 +206,7 @@ export function calcularDesempenho(
     tempoPorEtapa,
     motivos,
     origens,
+    campanhas,
     vendedores,
   };
 }

@@ -342,7 +342,7 @@ export const CAPITULOS: Capitulo[] = [
   {
     id: 'integracoes',
     titulo: 'Trazer leads',
-    descricao: 'Planilha que você já tem e formulários do site entrando sozinhos.',
+    descricao: 'Planilha que você já tem, formulários do site e anúncios da Meta entrando sozinhos.',
     artigos: [
       {
         id: 'importar',
@@ -371,6 +371,22 @@ export const CAPITULOS: Capitulo[] = [
         ],
         dica: 'O endereço é secreto: quem tiver ele consegue criar leads na sua empresa.',
         imagem: { src: '/ajuda/webhook.jpg', alt: 'Tela do webhook com o endereço e o exemplo de envio.' },
+      },
+      {
+        id: 'anuncios-meta',
+        titulo: 'Leads dos anúncios do Facebook e do Instagram',
+        resumo: 'Quem preenche o formulário do anúncio vira lead na hora, com a campanha e o anúncio de onde veio.',
+        admin: true,
+        passos: [
+          'Em Integrações › Anúncios, siga o passo a passo: ID da Página, token permanente da Página e App Secret (se o WhatsApp oficial já estiver conectado com o mesmo app, pode deixar o App Secret em branco).',
+          'Salve. O CRM mostra o endereço do webhook e o token de verificação: cole os dois no app da Meta, em Webhooks › Page, e assine o campo leadgen.',
+          'Toque em Testar conexão. Depois crie um lead na Ferramenta de teste de anúncios de cadastro da Meta: ele aparece no funil em segundos.',
+          'Cada lead entra com origem Facebook Ads ou Instagram Ads, a campanha e o anúncio. Perguntas extras do formulário viram uma anotação na ficha. A roleta de distribuição vale para eles.',
+          'Mesmo WhatsApp ou e-mail de um lead em aberto não vira lead repetido: entra no histórico do que já existe.',
+          'Ficou um tempo desconectado? "Buscar leads dos últimos 7 dias" traz o que faltou, sem duplicar.',
+        ],
+        dica: 'Anúncio que abre conversa no WhatsApp (Click-to-WhatsApp) já funciona com o WhatsApp oficial conectado: o lead chega com a campanha e a conversa mostra de qual anúncio veio. Em Relatórios › Desempenho, o quadro Campanhas mostra quanto cada uma trouxe e vendeu.',
+        imagem: { src: '/ajuda/anuncios-meta.jpg', alt: 'Tela dos anúncios da Meta com a Página conectada e os últimos leads recebidos.' },
       },
     ],
   },
